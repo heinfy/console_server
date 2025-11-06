@@ -1,5 +1,7 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Generic, TypeVar, List
+
+T = TypeVar("T")
 
 
 class UserCreate(BaseModel):
@@ -29,3 +31,19 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    """通用分页响应模型"""
+
+    items: List[T]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class UserListResponse(PaginatedResponse[UserResponse]):
+    """用户列表分页响应"""
+
+    pass

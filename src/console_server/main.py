@@ -29,18 +29,61 @@ print_info(f"DEBUG: {_debug}")
 
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+import logging
 
 # ✅ 第二步：导入本地模块（必须放在前面）
 from .db import database
 from .api.router import router
+from . import auth
+from .core.config import settings
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# 创建全局调度器
+scheduler = AsyncIOScheduler()
+
+
+async def cleanup_expired_tokens_task():
+    """定时清理过期 token 的任务"""
+    try:
+        async with database.AsyncSessionLocal() as db:
+            deleted_count = await auth.cleanup_expired_tokens(db)
+            if deleted_count > 0:
+                logger.info(f"定时任务：清理了 {deleted_count} 个过期 token")
+            else:
+                logger.debug("定时任务：没有需要清理的过期 token")
+    except Exception as e:
+        logger.error(f"定时任务执行失败：{str(e)}", exc_info=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print_success("应用启动：初始化数据库")
     await database.init_db()
+
+    # 启动定时任务
+    print_success("应用启动：启动定时任务")
+    scheduler.add_job(
+        cleanup_expired_tokens_task,
+        trigger=IntervalTrigger(hours=settings.CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS),
+        id="cleanup_expired_tokens",
+        name="清理过期 token",
+        replace_existing=True,
+    )
+    scheduler.start()
+    print_info(
+        f"定时任务已启动：每 {settings.CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS} 小时执行一次清理"
+    )
+
     yield
+
+    # 关闭调度器
+    print_info("应用关闭：停止定时任务")
+    scheduler.shutdown(wait=False)
     print_info("应用关闭：目前无额外清理任务")
 
 

@@ -35,4 +35,10 @@ GET {{host}}{{v1}}{{user}}current HTTP/1.1
 Authorization: Bearer {{access_token}}
 
 ### 4. 获取所有用户
-GET {{host}}{{v1}}{{user}}users HTTP/1.1
+GET {{host}}{{v1}}{{user}}users?page=1&page_size=10 HTTP/1.1
+Authorization: Bearer {{access_token}}
+
+
+### 5. 登出
+POST {{host}}logout HTTP/1.1
+Authorization: Bearer {{access_token}}
