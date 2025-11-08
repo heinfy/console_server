@@ -17,6 +17,9 @@ dependencies = [
     "colorama>=0.4.6",
     "pydantic-settings>=2.11.0",
     "apscheduler>=3.11.1",
+    "casbin>=1.43.0",
+    "casbin-sqlalchemy-adapter>=1.4.0",
+    "psycopg2-binary>=2.9.11",
 ]
 
 [dependency-groups]

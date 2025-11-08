@@ -14,6 +14,7 @@ class User(Base):
     name = Column(String(100), index=True)
     email = Column(String(100), unique=True, index=True)
     password = Column(String(255))  # 存储哈希后的密码
+    role = Column(String(50), index=True, default="user")
 
 
 class TokenBlacklist(Base):

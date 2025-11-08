@@ -27,7 +27,9 @@ print_info(f"版本: {settings.APP_VERSION}")
 print_info(f"环境: {env}")
 print_info(f"DEBUG: {_debug}")
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -38,6 +40,7 @@ from .db import database
 from .api.router import router
 from . import auth
 from .core.config import settings
+from .rbac.enforcer import enforce, get_enforcer
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -97,3 +100,50 @@ app = FastAPI(
 )
 
 app.include_router(router, prefix=settings.API_STR)
+
+
+class RBACMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # 允许的公开路径
+        public_paths = {
+            f"{settings.API_STR}/health",
+            f"{settings.API_STR}/login",
+            f"{settings.API_STR}/register",
+        }
+        path = request.url.path
+        method = request.method.upper()
+
+        # 预检/公开/文档放行
+        if (
+            method == "OPTIONS"
+            or path in public_paths
+            or path.startswith("/docs")
+            or path.startswith("/redoc")
+            or path.startswith("/api/openapi.json")
+        ):
+            return await call_next(request)
+
+        # 尝试解析当前用户
+        authorization: str | None = request.headers.get("Authorization")
+        if not authorization or not authorization.startswith("Bearer "):
+            return JSONResponse(status_code=401, content={"detail": "未认证"})
+        token = authorization.split(" ", 1)[1]
+
+        try:
+            async with database.AsyncSessionLocal() as db:
+                user = await auth.get_current_user(token=token, db=db)
+        except Exception:
+            return JSONResponse(status_code=401, content={"detail": "认证失败"})
+
+        subject = user.role or "user"
+
+        # API 访问鉴权
+        if not enforce(subject, path, method):
+            return JSONResponse(status_code=403, content={"detail": "无权限"})
+
+        return await call_next(request)
+
+
+# 初始化 Enforcer（懒加载亦可，这里确保启动时加载校验配置可用）
+get_enforcer()
+app.add_middleware(RBACMiddleware)

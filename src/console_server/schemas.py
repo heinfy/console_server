@@ -14,6 +14,7 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
+    role: str
 
     class Config:
         from_attributes = True  # 兼容 SQLAlchemy 模型

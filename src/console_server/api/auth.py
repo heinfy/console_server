@@ -9,6 +9,8 @@ from console_server import models
 from console_server import schemas
 from console_server import auth
 from console_server.core.config import settings
+from console_server.rbac.enforcer import enforce
+from console_server.permissions import MENUS, ACTIONS
 
 
 auth_router = APIRouter(tags=["auth"])
@@ -33,7 +35,12 @@ async def create_user(
 
     # 创建新用户，密码哈希处理
     hashed_password = auth.get_password_hash(user.password)
-    new_user = models.User(name=user.name, email=user.email, password=hashed_password)
+    new_user = models.User(
+        name=user.name,
+        email=user.email,
+        password=hashed_password,
+        role="user",
+    )
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
@@ -109,6 +116,28 @@ async def logout(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"退出登录时发生错误: {str(e)}",
         )
+
+
+@auth_router.get(
+    "/me/permissions",
+    summary="获取当前用户的菜单/按钮权限",
+    description="根据 Casbin 策略返回前端可用的菜单与操作 key",
+)
+async def get_my_permissions(
+    current_user: models.User = Depends(auth.get_current_user),
+):
+    subject = current_user.role or "user"
+
+    allowed_menus = [m["key"] for m in MENUS if enforce(subject, m["obj"], m["act"])]
+    allowed_actions = [
+        a["key"] for a in ACTIONS if enforce(subject, a["obj"], a["act"])
+    ]
+
+    return {
+        "role": subject,
+        "menus": allowed_menus,
+        "actions": allowed_actions,
+    }
 
 
 @auth_router.post(

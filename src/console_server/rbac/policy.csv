@@ -1,0 +1,42 @@
+# 策略示例与说明
+# -------------------------------------------
+# 语法：
+# - p, <sub>, <obj>, <act>
+#   * sub：主体（通常为角色，如 admin/user）
+#   * obj：资源（API 路径或逻辑资源键，如 /api/v1/users 或 menu:user）
+#   * act：动作（HTTP 方法或自定义动作，如 GET/POST、VIEW/CLICK）。支持 regexMatch
+# - g, <user_or_role>, <role>
+#   * 用户或角色加入到某角色的分组（角色继承/绑定）
+#
+# 适配 model.conf：
+# - keyMatch2 用于路径匹配（/api/:res/* 等通配）
+# - regexMatch 用于方法匹配（(GET|POST) 等）
+#
+# 持久化：
+# - 首次启动若策略表为空，enforcer 会从此文件导入一次并保存到数据库
+# - 之后请通过数据库或管理接口维护策略
+
+# 管理员放开所有 API（首次启动将自动导入至数据库）
+p, admin, /api/*, (GET|POST|PUT|PATCH|DELETE)
+
+# 普通用户示例权限（按需扩展）
+p, user, /api/health, GET
+p, user, /api/v1/users, GET
+p, user, /api/v1/users/me, GET
+
+# 菜单/按钮可使用逻辑资源键（非必须，示例；首次启动将自动导入）
+# 比如把菜单/按钮映射到虚拟资源：menu:user, action:user:delete
+p, admin, menu:*, (VIEW)
+p, user, menu:user, (VIEW)
+p, admin, action:user:delete, (CLICK)
+
+# 角色继承示例（如有需要）：
+# g, manager, user
+
+p, admin, data1, read
+p, editor, data2, write
+p, auditor, logs, read
+
+g, zhangsan, admin
+g, zhangsan, editor
+g, zhangsan, auditor
