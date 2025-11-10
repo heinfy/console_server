@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, cast
 from sqlalchemy import select, insert, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -20,7 +21,12 @@ router = APIRouter(prefix="/user", tags=["user"])
     response_model=schemas.UserResponse,
 )
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
-    return current_user
+    return schemas.UserResponse(
+        id=int(current_user.id),
+        name=cast(str, current_user.name),
+        email=cast(str, current_user.email),
+        roles=[cast(str, role.name) for role in current_user.roles],
+    )
 
 
 @router.get(
@@ -53,14 +59,28 @@ async def read_users(
     total = count_result.scalar_one()
 
     # 获取分页数据
-    result = await db.execute(select(models.User).offset(offset).limit(page_size))
+    # 预加载 roles，避免序列化时触发懒加载（async 环境中会触发 greenlet 错误）
+    result = await db.execute(
+        select(models.User)
+        .options(selectinload(models.User.roles))
+        .offset(offset)
+        .limit(page_size)
+    )
     users = result.scalars().all()
 
     # 计算总页数
     total_pages = (total + page_size - 1) // page_size
 
     # 将 User 模型转换为 UserResponse schema
-    user_responses = [schemas.UserResponse.model_validate(user) for user in users]
+    user_responses = [
+        schemas.UserResponse(
+            id=int(user.id),
+            name=cast(str, user.name),
+            email=cast(str, user.email),
+            roles=[cast(str, role.name) for role in user.roles],
+        )
+        for user in users
+    ]
 
     return schemas.UserListResponse(
         items=user_responses,

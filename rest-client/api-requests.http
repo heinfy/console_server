@@ -11,9 +11,20 @@ POST {{host}}register HTTP/1.1
 Content-Type: application/json
 
 {
-  "name": "小明",
-  "email": "xiaoming@example.com",
+  "name": "Danny",
+  "email": "Danny@example.com",
   "password": "password123"
+}
+
+### 创建角色
+POST {{host}}role HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "user",
+  "display_name": " 普通用户",
+  "description": "这是一个普通用户角色，只能浏览基本的公共页面。",
+  "is_active": true
 }
 
 ### 2. 登录并提取
@@ -22,7 +33,7 @@ POST {{host}}login HTTP/1.1
 Content-Type: application/json
 
 {
-  "email": "zhangsan@example.com",
+  "email": "Danny@example.com",
   "password": "password123"
 }
 

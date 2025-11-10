@@ -7,10 +7,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from sqlalchemy.orm import selectinload
 
 from console_server.db import database
 
-from console_server import models
+from console_server import models, schemas
 from console_server.core.config import settings
 
 
@@ -177,7 +178,12 @@ async def get_current_user(
         raise credentials_exception
 
     # 根据邮箱从数据库中查询用户信息
-    result = await db.execute(select(models.User).where(models.User.email == email))
+    # 预加载 roles 关系，避免在序列化时触发懒加载（会在 async 环境中触发 greenlet 错误）
+    result = await db.execute(
+        select(models.User)
+        .options(selectinload(models.User.roles))
+        .where(models.User.email == email)
+    )
     user = result.scalar_one_or_none()
     # 如果用户不存在，抛出认证异常
     if user is None:

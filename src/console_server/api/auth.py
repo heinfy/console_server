@@ -18,7 +18,7 @@ auth_router = APIRouter(tags=["auth"])
 @auth_router.post(
     "/register",
     summary="注册用户",
-    description="注册用户",
+    description="注册用户并分配默认角色",
     response_model=schemas.UserResponse,
 )
 async def create_user(
@@ -34,10 +34,58 @@ async def create_user(
     # 创建新用户，密码哈希处理
     hashed_password = auth.get_password_hash(user.password)
     new_user = models.User(name=user.name, email=user.email, password=hashed_password)
+
+    # 🔑 关键：查找默认角色 "user"
+    role_result = await db.execute(
+        select(models.Role).where(models.Role.name == "user")
+    )
+    default_role = role_result.scalar_one_or_none()
+    if not default_role:
+        raise HTTPException(status_code=500, detail="Default 'user' role not found")
+
+    print("TTTTT:", default_role)
+    new_user.roles.append(default_role)
+
     db.add(new_user)
     await db.commit()
-    await db.refresh(new_user)
-    return new_user
+    # ⚠️ 重要：显式加载 roles（避免 lazy load 失败）
+    await db.refresh(new_user, ["roles"])
+
+    # 直接构建包含角色信息的字典
+    user_data = {
+        "id": new_user.id,
+        "name": new_user.name,
+        "email": new_user.email,
+        "roles": [role.name for role in new_user.roles],
+    }
+
+    return user_data
+
+
+@auth_router.post(
+    "/role",
+    summary="创建角色",
+    description="创建新角色",
+    response_model=schemas.RoleResponse,
+)
+async def create_role(
+    role: schemas.RoleCreate, db: AsyncSession = Depends(database.get_db)
+):
+    # 检查角色名称是否已存在
+    result = await db.execute(select(models.Role).where(models.Role.name == role.name))
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Role name already exists")
+    # 创建新角色
+    new_role = models.Role(
+        name=role.name,
+        display_name=role.display_name,
+        description=role.description,
+        is_active=role.is_active,
+    )
+    db.add(new_role)
+    await db.commit()
+    await db.refresh(new_role)
+    return new_role
 
 
 @auth_router.post(

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, computed_field
 from typing import Optional, Generic, TypeVar, List
 
 T = TypeVar("T")
@@ -14,6 +14,24 @@ class UserResponse(BaseModel):
     id: int
     name: str
     email: str
+    roles: List[str]
+
+    class Config:
+        from_attributes = True  # 兼容 SQLAlchemy 模型
+
+
+class RoleCreate(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    is_active: Optional[bool] = True
+
+
+class RoleResponse(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    is_active: Optional[bool] = True
 
     class Config:
         from_attributes = True  # 兼容 SQLAlchemy 模型
