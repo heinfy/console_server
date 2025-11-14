@@ -23,11 +23,3 @@ AsyncSessionLocal = async_sessionmaker(
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
-
-
-# 初始化数据库（创建表）—— 仅用于开发
-async def init_db():
-    async with engine.begin() as conn:
-        from ..models import Base  # 修正为相对导入，符合包的结构
-
-        await conn.run_sync(Base.metadata.create_all)

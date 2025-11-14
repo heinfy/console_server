@@ -1,9 +1,9 @@
-from typing import List, cast
-from sqlalchemy import select, insert, func
+from typing import cast
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, Query
 
 from console_server.db import database
 from console_server import models

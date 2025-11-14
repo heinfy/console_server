@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 from colorama import init
-from console_server.utils.console import print_success, print_info
+from console_server.utils.console import print_highlight, print_success, print_info
 from console_server.core.config import settings
 
 # 如果 RUNNING_IN_DOCKER 或 NO_COLOR 被设置，禁用颜色
@@ -35,6 +35,7 @@ import logging
 
 # ✅ 第二步：导入本地模块（必须放在前面）
 from .db import database
+from .db.init_db import init_db
 from .api.router import router
 from . import auth
 from .core.config import settings
@@ -62,11 +63,13 @@ async def cleanup_expired_tokens_task():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print_success("应用启动：初始化数据库")
-    await database.init_db()
+    print_success("✅ 应用启动：初始化数据库")
+    if env == "dev":
+        print_highlight("✅ 正在初始化数据库...")
+        await init_db()
 
     # 启动定时任务
-    print_success("应用启动：启动定时任务")
+    print_success("✅ 应用启动：启动定时任务")
     scheduler.add_job(
         cleanup_expired_tokens_task,
         trigger=IntervalTrigger(hours=settings.CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS),
@@ -76,7 +79,7 @@ async def lifespan(app: FastAPI):
     )
     scheduler.start()
     print_info(
-        f"定时任务已启动：每 {settings.CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS} 小时执行一次清理"
+        f"✅ 定时任务已启动：每 {settings.CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS} 小时执行一次清理"
     )
 
     yield

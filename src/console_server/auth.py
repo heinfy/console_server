@@ -150,7 +150,7 @@ async def get_current_user(
     """从 token 中获取当前用户，并检查 token 是否在黑名单中"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="无法验证凭证",
+        detail="无法验证凭证，请登录",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
