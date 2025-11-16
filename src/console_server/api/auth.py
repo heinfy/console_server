@@ -29,7 +29,9 @@ async def create_user(
         select(models.User).where(models.User.email == user.email)
     )
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
+        )
 
     # 创建新用户，密码哈希处理
     hashed_password = auth.get_password_hash(user.password)

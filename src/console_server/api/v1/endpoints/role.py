@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from console_server.db import database
 from console_server import models
@@ -26,7 +26,9 @@ async def create_role(
     # 检查角色名称是否已存在
     result = await db.execute(select(models.Role).where(models.Role.name == role.name))
     if result.scalar_one_or_none():
-        raise HTTPException(status_code=400, detail="Role name already exists")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Role name already exists"
+        )
     # 创建新角色
     new_role = models.Role(
         name=role.name,

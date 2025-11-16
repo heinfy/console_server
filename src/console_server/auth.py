@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, func
 from sqlalchemy.orm import selectinload
 
 from console_server.db import database
@@ -135,13 +135,21 @@ async def cleanup_expired_tokens(db: AsyncSession) -> int:
     Returns:
         删除的 token 数量
     """
+    # 先查询将要删除的数量
+    count_query = select(func.count(models.TokenBlacklist.id)).where(
+        models.TokenBlacklist.expires_at < datetime.now(timezone.utc)
+    )
+    count_result = await db.execute(count_query)
+    deleted_count = count_result.scalar() or 0
+
+    # 执行删除操作
     result = await db.execute(
         delete(models.TokenBlacklist).where(
             models.TokenBlacklist.expires_at < datetime.now(timezone.utc)
         )
     )
     await db.commit()
-    return result.rowcount
+    return deleted_count
 
 
 async def get_current_user(
@@ -169,7 +177,7 @@ async def get_current_user(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
         # 从 payload 中提取用户邮箱（"sub" 字段通常存储用户标识）
-        email: str = payload.get("sub")
+        email: str | None = payload.get("sub") or None
         # 如果邮箱为空，说明 token 无效，抛出认证异常
         if email is None:
             raise credentials_exception

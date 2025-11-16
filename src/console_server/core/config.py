@@ -1,45 +1,7 @@
-from __future__ import annotations
-
-from pathlib import Path
-from typing import Optional
-
-from pydantic_settings import BaseSettings
-
-try:  # Python 3.11+
-    import tomllib  # type: ignore[attr-defined]
-except Exception:  # pragma: no cover
-    tomllib = None  # type: ignore[assignment]
+from console_server.utils.get_version import read_pyproject_version
 
 
-def _find_project_root(start: Path) -> Optional[Path]:
-    current = start
-    for parent in [current, *current.parents]:
-        if (parent / "pyproject.toml").exists():
-            return parent
-    return None
-
-
-def _read_pyproject_version() -> Optional[str]:
-    if tomllib is None:
-        return None
-    try:
-        root = _find_project_root(Path(__file__).resolve())
-        if root is None:
-            return None
-        pyproject_path = root / "pyproject.toml"
-        with pyproject_path.open("rb") as f:
-            data = tomllib.load(f)
-        project = data.get("project") or {}
-        version = project.get("version")
-        if isinstance(version, str) and version.strip():
-            return version.strip()
-    except Exception:
-        # Silently fall back to None if anything goes wrong
-        return None
-    return None
-
-
-_DEFAULT_APP_VERSION = _read_pyproject_version()
+_DEFAULT_APP_VERSION = read_pyproject_version()
 
 
 class Settings(BaseSettings):
@@ -60,10 +22,14 @@ class Settings(BaseSettings):
     )
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1
-    TOKEN_TYPE: str = "bearer"  # OAuth2 token 类型，常见值: "bearer", "mac"
+    TOKEN_TYPE: str = "bearer"  # OAuth2 token type
 
     # 定时任务配置
     CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS: int = 24  # 清理过期 token 的间隔（小时）
+
+    # 分页配置
+    DEFAULT_PAGE_SIZE: int = 10
+    MAX_PAGE_SIZE: int = 100
 
 
 settings = Settings()

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, computed_field
+from pydantic import BaseModel, EmailStr
 from typing import Optional, Generic, TypeVar, List
 
 T = TypeVar("T")

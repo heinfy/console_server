@@ -9,6 +9,7 @@ from console_server.db import database
 from console_server import models
 from console_server import schemas
 from console_server import auth
+from console_server.core.config import settings
 
 
 router = APIRouter(prefix="/user", tags=["user"])
@@ -39,7 +40,12 @@ async def read_users(
     current_user: models.User = Depends(auth.get_current_user),
     db: AsyncSession = Depends(database.get_db),
     page: int = Query(1, ge=1, description="页码，从1开始"),
-    page_size: int = Query(10, ge=1, le=100, description="每页数量，最大100"),
+    page_size: int = Query(
+        settings.DEFAULT_PAGE_SIZE,
+        ge=1,
+        le=settings.MAX_PAGE_SIZE,
+        description="每页数量，最大100",
+    ),
 ):
     """
     获取用户列表接口（支持分页）
@@ -74,7 +80,7 @@ async def read_users(
     # 将 User 模型转换为 UserResponse schema
     user_responses = [
         schemas.UserResponse(
-            id=int(user.id),
+            id=cast(int, user.id),
             name=cast(str, user.name),
             email=cast(str, user.email),
             roles=[cast(str, role.name) for role in user.roles],
