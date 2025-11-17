@@ -34,7 +34,35 @@ class RoleResponse(BaseModel):
     is_active: Optional[bool] = True
 
     class Config:
-        from_attributes = True  # 兼容 SQLAlchemy 模型
+        from_attributes = True
+
+
+class RolePermissionResponse(BaseModel):
+    role_id: int
+    permission_ids: List[int] = []
+
+
+class AssignRolesRequest(BaseModel):
+    role_ids: list[int]
+
+
+class PermissionCreate(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+
+
+class PermissionResponse(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AssignPermissionsRequest(BaseModel):
+    permission_ids: list[int]
 
 
 class UserLogin(BaseModel):

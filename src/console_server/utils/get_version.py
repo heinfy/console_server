@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from pydantic_settings import BaseSettings
-
 try:  # Python 3.11+
     import tomllib  # type: ignore[attr-defined]
 except Exception:  # pragma: no cover

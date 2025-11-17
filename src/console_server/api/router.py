@@ -14,4 +14,4 @@ router.include_router(auth_router)
     description="测试服务是否启动",
 )
 async def health(tag="服务测试"):
-    return {"status": "ok"}
+    return {"msg": "ok"}

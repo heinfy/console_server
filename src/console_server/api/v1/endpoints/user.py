@@ -3,7 +3,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Body
 
 from console_server.db import database
 from console_server import models
@@ -15,6 +15,7 @@ from console_server.core.config import settings
 router = APIRouter(prefix="/user", tags=["user"])
 
 
+# 获取当前用户信息
 @router.get(
     "/current",
     summary="获取当前用户信息",
@@ -23,13 +24,74 @@ router = APIRouter(prefix="/user", tags=["user"])
 )
 async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
     return schemas.UserResponse(
-        id=int(current_user.id),
+        id=cast(int, current_user.id),
         name=cast(str, current_user.name),
         email=cast(str, current_user.email),
         roles=[cast(str, role.name) for role in current_user.roles],
     )
 
 
+# 给用户分配角色
+@router.post(
+    "/{user_id}/assign-roles",
+    summary="为用户分配多个角色（通过ID）",
+    description="根据角色ID列表为特定用户分配角色权限。",
+    response_model=schemas.UserResponse,
+)
+async def assign_role_to_user(
+    user_id: int,
+    role_request: schemas.AssignRolesRequest = Body(
+        default=schemas.AssignRolesRequest(role_ids=[])
+    ),
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    # 查询目标用户是否存在
+    result = await db.execute(
+        select(models.User)
+        .where(models.User.id == user_id)
+        .options(selectinload(models.User.roles))
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
+        )
+
+    # 查询所有待分配的角色对象
+    stmt = select(models.Role).where(models.Role.id.in_(role_request.role_ids))
+    result = await db.execute(stmt)
+    roles_to_assign = result.scalars().all()
+
+    # 如果部分角色不存在，则抛出错误提示具体缺失项
+    found_role_ids = {cast(int, r.id) for r in roles_to_assign}
+    missing_role_ids = set(role_request.role_ids) - found_role_ids
+    if missing_role_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Roles with IDs {list(missing_role_ids)} not found",
+        )
+
+    # 过滤掉已存在的角色关系，防止重复添加
+    existing_role_ids = {r.id for r in user.roles}
+    new_roles = [r for r in roles_to_assign if r.id not in existing_role_ids]
+
+    # 添加新角色并提交事务
+    user.roles.extend(new_roles)
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+
+    # 返回更新后用户信息
+    return schemas.UserResponse(
+        id=cast(int, user.id),
+        name=str(user.name),
+        email=str(user.email),
+        roles=[str(role.name) for role in user.roles],
+    )
+
+
+# 获取用户列表
 @router.get(
     "/users",
     summary="获取用户列表",

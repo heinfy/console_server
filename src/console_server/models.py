@@ -26,6 +26,14 @@ user_roles = Table(
     Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
 )
 
+# 角色-权限关联表（无主键类）
+role_permissions = Table(
+    "role_permissions",
+    Base.metadata,
+    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
+)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -88,9 +96,39 @@ class Role(Base):
     )
 
     users = relationship("User", secondary=user_roles, back_populates="roles")
+    permissions = relationship(
+        "Permission", secondary=role_permissions, back_populates="roles"
+    )
 
     def __repr__(self):
         return f"<Role(id={self.id}, name='{self.name}', display_name='{self.display_name}', is_active={self.is_active})>"
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(128), unique=True, nullable=False, index=True)
+    display_name = Column(String(256), nullable=False, index=True)
+    description = Column(Text, nullable=True)
+
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    roles = relationship(
+        "Role", secondary=role_permissions, back_populates="permissions"
+    )
+
+    def __repr__(self):
+        return f"<Permission(id={self.id}, name='{self.name}', display_name='{self.display_name}')>"
 
 
 class TokenBlacklist(Base):

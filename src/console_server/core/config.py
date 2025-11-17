@@ -1,5 +1,7 @@
 from console_server.utils.get_version import read_pyproject_version
 
+from pydantic_settings import BaseSettings
+
 
 _DEFAULT_APP_VERSION = read_pyproject_version()
 
