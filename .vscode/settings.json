@@ -1,0 +1,27 @@
+{
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "email": "Danny@example.com",
+      "password": "password123"
+    },
+    "local": {
+      "host": "http://127.0.0.1:8000/api",
+      "email": "{{$shared email}}",
+      "v1": "/v1",
+      "user": "/user",
+      "role": "/role",
+      "permission": "/permission",
+      "password": "{{$shared password}}",
+      "access_token": ""
+    },
+    "dev": {
+      "host": "http://127.0.0.1:8000/api/",
+      "email": "{{$shared email}}",
+      "v1": "/v1",
+      "user": "/user",
+      "role": "/role",
+      "password": "{{$shared password}}",
+      "access_token": ""
+    }
+  }
+}
