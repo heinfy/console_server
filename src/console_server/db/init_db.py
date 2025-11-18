@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert
 
-from console_server.models import Base, Role, User, user_roles
-from console_server.auth import get_password_hash
+from console_server.model.rbac import Base, Role, User, user_roles
+from console_server.utils.auth import get_password_hash
 from .database import engine
 import logging
 

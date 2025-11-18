@@ -11,7 +11,8 @@ from sqlalchemy.orm import selectinload
 
 from console_server.db import database
 
-from console_server import models, schemas
+from console_server.model.rbac import User
+from console_server.model.token import TokenBlacklist
 from console_server.core.config import settings
 
 
@@ -86,15 +87,13 @@ async def add_token_to_blacklist(
 
     # 检查是否已存在于黑名单中
     result = await db.execute(
-        select(models.TokenBlacklist).where(
-            models.TokenBlacklist.token_hash == token_hash
-        )
+        select(TokenBlacklist).where(TokenBlacklist.token_hash == token_hash)
     )
     existing = result.scalar_one_or_none()
 
     if existing is None:
         # 添加到黑名单
-        blacklist_entry = models.TokenBlacklist(
+        blacklist_entry = TokenBlacklist(
             token_hash=token_hash,
             expires_at=expires_at,
             created_at=datetime.now(timezone.utc),
@@ -116,10 +115,9 @@ async def is_token_blacklisted(token: str, db: AsyncSession) -> bool:
     """
     token_hash = get_token_hash(token)
     result = await db.execute(
-        select(models.TokenBlacklist).where(
-            models.TokenBlacklist.token_hash == token_hash,
-            models.TokenBlacklist.expires_at
-            > datetime.now(timezone.utc),  # 只检查未过期的
+        select(TokenBlacklist).where(
+            TokenBlacklist.token_hash == token_hash,
+            TokenBlacklist.expires_at > datetime.now(timezone.utc),  # 只检查未过期的
         )
     )
     return result.scalar_one_or_none() is not None
@@ -136,16 +134,16 @@ async def cleanup_expired_tokens(db: AsyncSession) -> int:
         删除的 token 数量
     """
     # 先查询将要删除的数量
-    count_query = select(func.count(models.TokenBlacklist.id)).where(
-        models.TokenBlacklist.expires_at < datetime.now(timezone.utc)
+    count_query = select(func.count(TokenBlacklist.id)).where(
+        TokenBlacklist.expires_at < datetime.now(timezone.utc)
     )
     count_result = await db.execute(count_query)
     deleted_count = count_result.scalar() or 0
 
     # 执行删除操作
     result = await db.execute(
-        delete(models.TokenBlacklist).where(
-            models.TokenBlacklist.expires_at < datetime.now(timezone.utc)
+        delete(TokenBlacklist).where(
+            TokenBlacklist.expires_at < datetime.now(timezone.utc)
         )
     )
     await db.commit()
@@ -188,9 +186,7 @@ async def get_current_user(
     # 根据邮箱从数据库中查询用户信息
     # 预加载 roles 关系，避免在序列化时触发懒加载（会在 async 环境中触发 greenlet 错误）
     result = await db.execute(
-        select(models.User)
-        .options(selectinload(models.User.roles))
-        .where(models.User.email == email)
+        select(User).options(selectinload(User.roles)).where(User.email == email)
     )
     user = result.scalar_one_or_none()
     # 如果用户不存在，抛出认证异常

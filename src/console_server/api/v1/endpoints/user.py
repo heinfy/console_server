@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, Query, HTTPException, status, Body
 
 from console_server.db import database
-from console_server import models
-from console_server import schemas
-from console_server import auth
+from console_server.model.rbac import User, Role
+from console_server.schema.user import UserResponse, UserListResponse
+from console_server.schema.role import AssignRolesRequest
+from console_server.utils.auth import get_current_user
 from console_server.core.config import settings
 
 
@@ -20,10 +21,10 @@ router = APIRouter(prefix="/user", tags=["user"])
     "/current",
     summary="获取当前用户信息",
     description="使用 JWT token 获取当前登录用户的信息",
-    response_model=schemas.UserResponse,
+    response_model=UserResponse,
 )
-async def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
-    return schemas.UserResponse(
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    return UserResponse(
         id=cast(int, current_user.id),
         name=cast(str, current_user.name),
         email=cast(str, current_user.email),
@@ -36,21 +37,17 @@ async def read_users_me(current_user: models.User = Depends(auth.get_current_use
     "/{user_id}/assign-roles",
     summary="为用户分配多个角色（通过ID）",
     description="根据角色ID列表为特定用户分配角色权限。",
-    response_model=schemas.UserResponse,
+    response_model=UserResponse,
 )
 async def assign_role_to_user(
     user_id: int,
-    role_request: schemas.AssignRolesRequest = Body(
-        default=schemas.AssignRolesRequest(role_ids=[])
-    ),
-    current_user: models.User = Depends(auth.get_current_user),
+    role_request: AssignRolesRequest = Body(default=AssignRolesRequest(role_ids=[])),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ):
     # 查询目标用户是否存在
     result = await db.execute(
-        select(models.User)
-        .where(models.User.id == user_id)
-        .options(selectinload(models.User.roles))
+        select(User).where(User.id == user_id).options(selectinload(User.roles))
     )
     user = result.scalar_one_or_none()
     if not user:
@@ -59,7 +56,7 @@ async def assign_role_to_user(
         )
 
     # 查询所有待分配的角色对象
-    stmt = select(models.Role).where(models.Role.id.in_(role_request.role_ids))
+    stmt = select(Role).where(Role.id.in_(role_request.role_ids))
     result = await db.execute(stmt)
     roles_to_assign = result.scalars().all()
 
@@ -83,7 +80,7 @@ async def assign_role_to_user(
     await db.refresh(user)
 
     # 返回更新后用户信息
-    return schemas.UserResponse(
+    return UserResponse(
         id=cast(int, user.id),
         name=str(user.name),
         email=str(user.email),
@@ -96,10 +93,10 @@ async def assign_role_to_user(
     "/users",
     summary="获取用户列表",
     description="获取用户列表（需要登录，支持分页）",
-    response_model=schemas.UserListResponse,
+    response_model=UserListResponse,
 )
 async def read_users(
-    current_user: models.User = Depends(auth.get_current_user),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(database.get_db),
     page: int = Query(1, ge=1, description="页码，从1开始"),
     page_size: int = Query(
@@ -123,16 +120,13 @@ async def read_users(
     offset = (page - 1) * page_size
 
     # 获取总数
-    count_result = await db.execute(select(func.count()).select_from(models.User))
+    count_result = await db.execute(select(func.count()).select_from(User))
     total = count_result.scalar_one()
 
     # 获取分页数据
     # 预加载 roles，避免序列化时触发懒加载（async 环境中会触发 greenlet 错误）
     result = await db.execute(
-        select(models.User)
-        .options(selectinload(models.User.roles))
-        .offset(offset)
-        .limit(page_size)
+        select(User).options(selectinload(User.roles)).offset(offset).limit(page_size)
     )
     users = result.scalars().all()
 
@@ -141,7 +135,7 @@ async def read_users(
 
     # 将 User 模型转换为 UserResponse schema
     user_responses = [
-        schemas.UserResponse(
+        UserResponse(
             id=cast(int, user.id),
             name=cast(str, user.name),
             email=cast(str, user.email),
@@ -150,7 +144,7 @@ async def read_users(
         for user in users
     ]
 
-    return schemas.UserListResponse(
+    return UserListResponse(
         items=user_responses,
         total=total,
         page=page,

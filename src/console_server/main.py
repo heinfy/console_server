@@ -37,7 +37,7 @@ import logging
 from .db import database
 from .db.init_db import init_db
 from .api.router import router
-from . import auth
+from .utils import auth
 from .core.config import settings
 
 # 配置日志

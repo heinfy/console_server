@@ -6,9 +6,12 @@ from sqlalchemy.orm import selectinload
 from typing import cast
 
 from console_server.db import database
-from console_server import models
-from console_server import schemas
-from console_server import auth
+from console_server.model.rbac import User, Role, Permission
+from console_server.schema.role import RoleCreate, RoleResponse, RolePermissionResponse
+from console_server.schema.permission import AssignPermissionsRequest
+
+
+from console_server.utils.auth import get_current_user
 
 
 router = APIRouter(prefix="/role", tags=["role"])
@@ -19,21 +22,21 @@ router = APIRouter(prefix="/role", tags=["role"])
     "/create",
     summary="创建角色",
     description="创建新角色",
-    response_model=schemas.RoleResponse,
+    response_model=RoleResponse,
 )
 async def create_role(
-    role: schemas.RoleCreate,
-    current_user: models.User = Depends(auth.get_current_user),
+    role: RoleCreate,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ):
     # 检查角色名称是否已存在
-    result = await db.execute(select(models.Role).where(models.Role.name == role.name))
+    result = await db.execute(select(Role).where(Role.name == role.name))
     if result.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Role name already exists"
         )
     # 创建新角色
-    new_role = models.Role(
+    new_role = Role(
         name=role.name,
         display_name=role.display_name,
         description=role.description,
@@ -50,19 +53,17 @@ async def create_role(
     "/{role_id}/assign-permissions",
     summary="为角色分配多个权限（通过ID）",
     description="根据权限ID列表为特定角色分配权限。",
-    response_model=schemas.RolePermissionResponse,
+    response_model=RolePermissionResponse,
 )
 async def assign_permissions_to_role(
     role_id: int,
-    permission_request: schemas.AssignPermissionsRequest,
-    current_user: models.User = Depends(auth.get_current_user),
+    permission_request: AssignPermissionsRequest,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ):
     # 查询目标角色是否存在
     result = await db.execute(
-        select(models.Role)
-        .where(models.Role.id == role_id)
-        .options(selectinload(models.Role.permissions))
+        select(Role).where(Role.id == role_id).options(selectinload(Role.permissions))
     )
     role = result.scalar_one_or_none()
     if not role:
@@ -71,8 +72,8 @@ async def assign_permissions_to_role(
         )
 
     # 查询所有待分配的权限对象
-    stmt = select(models.Permission).where(
-        models.Permission.id.in_(permission_request.permission_ids)
+    stmt = select(Permission).where(
+        Permission.id.in_(permission_request.permission_ids)
     )
     result = await db.execute(stmt)
     permissions_to_assign = result.scalars().all()

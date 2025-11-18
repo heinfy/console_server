@@ -11,11 +11,8 @@ from sqlalchemy import (
     ForeignKey,
 )
 from sqlalchemy.sql import func
-from sqlalchemy.ext.hybrid import hybrid_property
 
-
-class Base(DeclarativeBase):
-    pass
+from .common import Base
 
 
 # 中间表（无主键类）
@@ -129,18 +126,3 @@ class Permission(Base):
 
     def __repr__(self):
         return f"<Permission(id={self.id}, name='{self.name}', display_name='{self.display_name}')>"
-
-
-class TokenBlacklist(Base):
-    __tablename__ = "token_blacklist"
-
-    id = Column(Integer, primary_key=True, index=True)
-    token_hash = Column(
-        String(255), unique=True, index=True, nullable=False
-    )  # token 的哈希值
-    expires_at = Column(
-        DateTime(timezone=True), nullable=False, index=True
-    )  # token 过期时间（带时区）
-    created_at = Column(
-        DateTime(timezone=True), default=datetime.now(timezone.utc), nullable=False
-    )  # 加入黑名单的时间（带时区）

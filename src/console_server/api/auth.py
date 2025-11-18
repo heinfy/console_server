@@ -5,9 +5,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from console_server.db import database
-from console_server import models
-from console_server import schemas
-from console_server import auth
+from console_server.model.rbac import User, Role
+from console_server.schema.user import UserResponse, UserCreate, Token, UserLogin
+from console_server.utils.auth import (
+    get_current_user,
+    get_password_hash,
+    create_access_token,
+    verify_password,
+    oauth2_scheme,
+    cleanup_expired_tokens,
+    add_token_to_blacklist,
+)
 from console_server.core.config import settings
 
 
@@ -19,28 +27,22 @@ auth_router = APIRouter(tags=["auth"])
     "/register",
     summary="注册用户",
     description="注册用户并分配默认角色",
-    response_model=schemas.UserResponse,
+    response_model=UserResponse,
 )
-async def create_user(
-    user: schemas.UserCreate, db: AsyncSession = Depends(database.get_db)
-):
+async def create_user(user: UserCreate, db: AsyncSession = Depends(database.get_db)):
     # 检查邮箱是否已注册
-    result = await db.execute(
-        select(models.User).where(models.User.email == user.email)
-    )
+    result = await db.execute(select(User).where(User.email == user.email))
     if result.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Email already registered"
         )
 
     # 创建新用户，密码哈希处理
-    hashed_password = auth.get_password_hash(user.password)
-    new_user = models.User(name=user.name, email=user.email, password=hashed_password)
+    hashed_password = get_password_hash(user.password)
+    new_user = User(name=user.name, email=user.email, password=hashed_password)
 
     # 🔑 关键：查找默认角色 "user"
-    role_result = await db.execute(
-        select(models.Role).where(models.Role.name == "user")
-    )
+    role_result = await db.execute(select(Role).where(Role.name == "user"))
     default_role = role_result.scalar_one_or_none()
     if not default_role:
         raise HTTPException(status_code=500, detail="Default 'user' role not found")
@@ -68,18 +70,14 @@ async def create_user(
     "/login",
     summary="登录获取 token",
     description="使用邮箱和密码登录，获取 JWT token",
-    response_model=schemas.Token,
+    response_model=Token,
 )
-async def login(
-    form_data: schemas.UserLogin, db: AsyncSession = Depends(database.get_db)
-):
+async def login(form_data: UserLogin, db: AsyncSession = Depends(database.get_db)):
     # 验证用户
-    result = await db.execute(
-        select(models.User).where(models.User.email == form_data.email)
-    )
+    result = await db.execute(select(User).where(User.email == form_data.email))
     user = result.scalar_one_or_none()
 
-    if not user or not auth.verify_password(form_data.password, str(user.password)):
+    if not user or not verify_password(form_data.password, str(user.password)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="邮箱或密码错误",
@@ -88,7 +86,7 @@ async def login(
 
     # 创建访问 token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
+    access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
 
@@ -102,8 +100,8 @@ async def login(
     status_code=status.HTTP_200_OK,
 )
 async def logout(
-    token: str = Depends(auth.oauth2_scheme),
-    current_user: models.User = Depends(auth.get_current_user),
+    token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ):
     """
@@ -117,7 +115,7 @@ async def logout(
     """
     try:
         # 将 token 添加到黑名单（如果已存在则不会重复添加）
-        await auth.add_token_to_blacklist(token, db)
+        await add_token_to_blacklist(token, db)
 
         return {
             "message": "退出登录成功",
@@ -141,8 +139,8 @@ async def logout(
     description="清理黑名单中已过期的 token 记录，释放数据库空间",
     status_code=status.HTTP_200_OK,
 )
-async def cleanup_expired_tokens(
-    current_user: models.User = Depends(auth.get_current_user),
+async def clean_up_expired_tokens(
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ):
     """
@@ -152,7 +150,7 @@ async def cleanup_expired_tokens(
     建议定期调用此接口（如通过定时任务）以保持数据库整洁。
     """
     try:
-        deleted_count = await auth.cleanup_expired_tokens(db)
+        deleted_count = await cleanup_expired_tokens(db)
         return {
             "message": "清理完成",
             "deleted_count": deleted_count,
