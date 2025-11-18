@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS permissions (
     name VARCHAR(128) NOT NULL UNIQUE,
     display_name VARCHAR(256) NOT NULL,
     description TEXT,
+    is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
+    is_editable BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -36,3 +38,25 @@ CREATE TABLE IF NOT EXISTS role_permissions (
 
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id ON role_permissions (role_id);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions (permission_id);
+
+-- 给 permissions 表添加可删除和可编辑标志字段
+-- 添加 is_deletable 字段，默认为 false（不可删除）
+ALTER TABLE permissions 
+ADD COLUMN IF NOT EXISTS is_deletable BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 添加 is_editable 字段，默认为 false（不可编辑）
+ALTER TABLE permissions 
+ADD COLUMN IF NOT EXISTS is_editable BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 为新字段添加注释
+COMMENT ON COLUMN permissions.is_deletable IS '权限是否可以被删除，默认不可删除';
+COMMENT ON COLUMN permissions.is_editable IS '权限是否可以被编辑，默认不可编辑';
+
+-- 为新字段创建索引以提高查询性能
+-- CREATE INDEX IF NOT EXISTS idx_permissions_is_deletable ON permissions (is_deletable);
+-- CREATE INDEX IF NOT EXISTS idx_permissions_is_editable ON permissions (is_editable);
+
+-- 如果需要设置某些系统权限为可编辑或可删除，可以在这里添加更新语句
+-- 例如：
+-- UPDATE permissions SET is_editable = TRUE WHERE name LIKE 'temp_%';
+-- UPDATE permissions SET is_deletable = TRUE WHERE name LIKE 'custom_%';

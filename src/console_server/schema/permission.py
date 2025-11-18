@@ -8,6 +8,8 @@ class PermissionCreate(BaseModel):
     name: str
     display_name: str
     description: Optional[str] = None
+    is_deletable: bool = False
+    is_editable: bool = False
 
 
 class PermissionResponse(BaseModel):

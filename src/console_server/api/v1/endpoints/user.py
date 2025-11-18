@@ -7,7 +7,11 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status, Body
 
 from console_server.db import database
 from console_server.model.rbac import User, Role
-from console_server.schema.user import UserResponse, UserListResponse
+from console_server.schema.user import (
+    UserResponse,
+    CurrentUserResponse,
+    UserListResponse,
+)
 from console_server.schema.role import AssignRolesRequest
 from console_server.utils.auth import get_current_user
 from console_server.core.config import settings
@@ -21,14 +25,16 @@ router = APIRouter(prefix="/user", tags=["user"])
     "/current",
     summary="获取当前用户信息",
     description="使用 JWT token 获取当前登录用户的信息",
-    response_model=UserResponse,
+    response_model=CurrentUserResponse,
 )
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    return UserResponse(
+    print(current_user.permissions)
+    return CurrentUserResponse(
         id=cast(int, current_user.id),
         name=cast(str, current_user.name),
         email=cast(str, current_user.email),
         roles=[cast(str, role.name) for role in current_user.roles],
+        permissions=[cast(str, perm.name) for perm in current_user.permissions],
     )
 
 

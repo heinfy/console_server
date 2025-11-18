@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import List, Optional
 import hashlib
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from console_server.db import database
 
-from console_server.model.rbac import User
+from console_server.model.rbac import User, Role
 from console_server.model.token import TokenBlacklist
 from console_server.core.config import settings
 
@@ -153,7 +153,12 @@ async def cleanup_expired_tokens(db: AsyncSession) -> int:
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(database.get_db)
 ):
-    """从 token 中获取当前用户，并检查 token 是否在黑名单中"""
+    """
+    从 token 中获取当前用户，并预加载角色和权限信息
+
+    Returns:
+        User: 包含角色和权限信息的用户对象
+    """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="无法验证凭证，请登录",
@@ -186,11 +191,38 @@ async def get_current_user(
     # 根据邮箱从数据库中查询用户信息
     # 预加载 roles 关系，避免在序列化时触发懒加载（会在 async 环境中触发 greenlet 错误）
     result = await db.execute(
-        select(User).options(selectinload(User.roles)).where(User.email == email)
+        select(User)
+        .options(selectinload(User.roles).selectinload(Role.permissions))
+        .where(User.email == email)
     )
     user = result.scalar_one_or_none()
     # 如果用户不存在，抛出认证异常
     if user is None:
         raise credentials_exception
-    # 返回查询到的用户对象
+
+    # 返回查询到的用户对象（已包含角色和权限信息）
     return user
+
+
+def require_permission(required_permissions: List[str]):
+    """权限验证装饰器"""
+
+    async def permission_checker(
+        current_user: User = Depends(get_current_user),
+    ) -> User:
+        # 收集用户的所有权限
+        user_permissions = set()
+        for role in current_user.roles:
+            for permission in role.permissions:
+                user_permissions.add(permission.name)
+
+        # 检查是否拥有必需的权限
+        if not any(perm in user_permissions for perm in required_permissions):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"权限不足，需要以下权限之一: {required_permissions}",
+            )
+
+        return current_user
+
+    return permission_checker

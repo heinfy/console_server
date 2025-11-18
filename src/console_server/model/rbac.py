@@ -62,6 +62,14 @@ class User(Base):
     # 多对多关系
     roles = relationship("Role", secondary=user_roles, back_populates="users")
 
+    @property
+    def permissions(self):
+        perms = set()
+        for role in self.roles:
+            for permission in role.permissions:
+                perms.add(permission)
+        return list(perms)
+
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', email='{self.email}', is_active={self.is_active})>"
 
@@ -108,6 +116,9 @@ class Permission(Base):
     name = Column(String(128), unique=True, nullable=False, index=True)
     display_name = Column(String(256), nullable=False, index=True)
     description = Column(Text, nullable=True)
+
+    is_deletable = Column(Boolean, default=False, nullable=False)
+    is_editable = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

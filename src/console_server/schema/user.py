@@ -9,6 +9,17 @@ class UserCreate(BaseModel):
     password: str
 
 
+class CurrentUserResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    roles: List[str]
+    permissions: List[str]
+
+    class Config:
+        from_attributes = True  # 兼容 SQLAlchemy 模型
+
+
 class UserResponse(BaseModel):
     id: int
     name: str

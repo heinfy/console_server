@@ -2,6 +2,7 @@
 import os
 from dotenv import load_dotenv
 from colorama import init
+from console_server.middleware.auth import AuthMiddleware
 from console_server.utils.console import print_highlight, print_success, print_info
 from console_server.core.config import settings
 
@@ -98,5 +99,8 @@ app = FastAPI(
     redoc_url="/redoc" if _debug else None,
     openapi_url="/api/openapi.json" if _debug else None,
 )
+
+# 添加中间件
+app.add_middleware(AuthMiddleware)
 
 app.include_router(router, prefix=settings.API_STR)

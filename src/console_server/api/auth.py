@@ -19,7 +19,7 @@ from console_server.utils.auth import (
 from console_server.core.config import settings
 
 
-auth_router = APIRouter(tags=["auth"])
+auth_router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 # ✅ 路由

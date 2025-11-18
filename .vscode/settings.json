@@ -8,16 +8,18 @@
       "host": "http://127.0.0.1:8000/api",
       "email": "{{$shared email}}",
       "v1": "/v1",
+      "auth": "/auth",
       "user": "/user",
       "role": "/role",
       "permission": "/permission",
       "password": "{{$shared password}}",
-      "access_token": ""
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJEYW5ueUBleGFtcGxlLmNvbSIsImV4cCI6MTc2MzQ4OTEyN30.iX-Nu5ajK0WGK-5P6bl2TKCnZCHVAehr5LzCEV7m2S0"
     },
     "dev": {
       "host": "http://127.0.0.1:8000/api/",
       "email": "{{$shared email}}",
       "v1": "/v1",
+      "auth": "/auth",
       "user": "/user",
       "role": "/role",
       "password": "{{$shared password}}",
