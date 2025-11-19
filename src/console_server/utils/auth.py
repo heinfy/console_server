@@ -214,8 +214,9 @@ def require_permission(curr_api_path: str, required_permission: str):
         current_user: User = Depends(get_current_user),
     ) -> User:
         # 如果用户是管理员，无需权限检查
-        if current_user.roles.include("admin"):
-            return current_user
+        for role in current_user.roles:
+            if role.name == "admin" or f"{curr_api_path}_admin":
+                return current_user
         # 遍历用户的角色，获取每个角色的权限
         for role in current_user.roles:
             for permission in role.permissions:
