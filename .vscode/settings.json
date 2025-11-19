@@ -13,7 +13,7 @@
       "role": "/role",
       "permission": "/permission",
       "password": "{{$shared password}}",
-      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJEYW5ueUBleGFtcGxlLmNvbSIsImV4cCI6MTc2MzQ4OTEyN30.iX-Nu5ajK0WGK-5P6bl2TKCnZCHVAehr5LzCEV7m2S0"
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJEYW5ueUBleGFtcGxlLmNvbSIsImV4cCI6MTc2MzU1MjUxMn0.XZ4w5aSDB3KFU19HrCGCX9WnDLe-YEyk5u8FK2q7fS8"
     },
     "dev": {
       "host": "http://127.0.0.1:8000/api/",

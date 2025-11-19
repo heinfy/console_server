@@ -14,3 +14,37 @@ Authorization: Bearer {{access_token}}
 {
   "role_ids": [11,10]
 }
+
+### 4. 获取某个用户的角色
+GET {{host}}{{v1}}{{user}}/41/roles HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{access_token}}
+
+
+### 5. 批量删除某个用户的角色
+DELETE {{host}}{{v1}}{{user}}/41/roles HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{access_token}}
+
+{
+  "role_ids": [11]
+}
+
+### 7. 更新用户信息
+PUT {{host}}{{v1}}{{user}}/update-current HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{access_token}}
+
+ {
+  "name": "丹妮2",
+  "description": "丹妮是普通用户"
+}
+
+### 8. 禁用/启用某个用户
+PUT {{host}}{{v1}}{{user}}/41/disable HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{access_token}}
+
+{
+  "is_active": true
+}

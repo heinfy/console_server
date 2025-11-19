@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from console_server.schema.common import SuccessResponse
+
 from .v1.router import v1_router
 from .auth import auth_router
 
@@ -14,4 +16,4 @@ router.include_router(auth_router)
     description="测试服务是否启动",
 )
 async def health(tag="服务测试"):
-    return {"msg": "ok"}
+    return SuccessResponse()

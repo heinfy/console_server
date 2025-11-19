@@ -9,6 +9,8 @@ from console_server.utils.auth import get_current_user
 
 # 定义不需要认证的路径列表
 EXCLUDED_PATH_PATTERNS = [
+    r"^/docs$",  # 精确匹配 /docs 路径
+    r"^/api/openapi.json$",  # 精确匹配 /api/openapi.json 路径
     r"^/api/auth/.*$",  # 匹配所有 /api/auth/ 开头的路径
     r"^/api/health$",  # 精确匹配 /api/health 路径
 ]

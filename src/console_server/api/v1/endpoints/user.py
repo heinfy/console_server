@@ -1,5 +1,5 @@
 from typing import cast
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,12 +7,18 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status, Body
 
 from console_server.db import database
 from console_server.model.rbac import User, Role
+from console_server.schema.common import SuccessResponse
 from console_server.schema.user import (
     UserResponse,
     CurrentUserResponse,
     UserListResponse,
+    UpdateUserRequest,
+    DisableUserRequest,
 )
-from console_server.schema.role import AssignRolesRequest
+from console_server.schema.role import (
+    AssignRolesRequest,
+    RemoveRolesRequest,
+)
 from console_server.utils.auth import get_current_user
 from console_server.core.config import settings
 
@@ -28,7 +34,6 @@ router = APIRouter(prefix="/user", tags=["user"])
     response_model=CurrentUserResponse,
 )
 async def read_users_me(current_user: User = Depends(get_current_user)):
-    print(current_user.permissions)
     return CurrentUserResponse(
         id=cast(int, current_user.id),
         name=cast(str, current_user.name),
@@ -36,6 +41,49 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
         roles=[cast(str, role.name) for role in current_user.roles],
         permissions=[cast(str, perm.name) for perm in current_user.permissions],
     )
+
+
+# 禁用/启用某个用户
+@router.put(
+    "/{user_id}/disable",
+    summary="禁用某个用户",
+    description="禁用某个用户",
+    response_model=SuccessResponse,
+)
+async def disable_user(
+    user_id: int,
+    role_request: DisableUserRequest = Body(),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    is_active = role_request.is_active
+    await db.execute(update(User).where(User.id == user_id).values(is_active=is_active))
+    await db.commit()
+    return SuccessResponse()
+
+
+# 更新当前用户的名称和描述
+@router.put(
+    "/update-current",
+    summary="更新当前用户信息",
+    description="更新当前登录用户的名称和描述",
+    response_model=SuccessResponse,
+)
+async def update_current_user(
+    user_request: UpdateUserRequest = Body(),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    name = user_request.name
+    description = user_request.description
+    print(current_user)
+    await db.execute(
+        update(User)
+        .where(User.id == cast(int, current_user.id))
+        .values(name=name, description=description)
+    )
+    await db.commit()
+    return SuccessResponse()
 
 
 # 给用户分配角色
@@ -86,6 +134,84 @@ async def assign_role_to_user(
     await db.refresh(user)
 
     # 返回更新后用户信息
+    return UserResponse(
+        id=cast(int, user.id),
+        name=str(user.name),
+        email=str(user.email),
+        roles=[str(role.name) for role in user.roles],
+    )
+
+
+# 获取某个用户的角色
+@router.get(
+    "/{user_id}/roles",
+    summary="获取某个用户的角色",
+    description="获取某个用户的角色列表（需要登录）",
+    response_model=UserResponse,
+)
+async def get_user_roles(
+    user_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    # 获取用户信息
+    result = await db.execute(
+        select(User).where(User.id == user_id).options(selectinload(User.roles))
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
+        )
+    return UserResponse(
+        id=cast(int, user.id),
+        name=str(user.name),
+        email=str(user.email),
+        roles=[str(role.name) for role in user.roles],
+    )
+
+
+# 批量删除某个用户的角色
+@router.delete(
+    "/{user_id}/roles",
+    summary="批量删除某个用户的角色",
+    description="批量删除某个用户的角色（需要登录）",
+    response_model=UserResponse,
+)
+async def delete_user_roles(
+    user_id: int,
+    role_request: RemoveRolesRequest = Body(default=RemoveRolesRequest(role_ids=[])),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    # 获取用户信息
+    result = await db.execute(
+        select(User).where(User.id == user_id).options(selectinload(User.roles))
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
+        )
+    role_ids = role_request.role_ids
+    # 获取所有待删除的角色对象
+    stmt = select(Role).where(Role.id.in_(role_ids))
+    result = await db.execute(stmt)
+    roles_to_delete = result.scalars().all()
+    if not roles_to_delete:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Role not found"
+        )
+    existing_role_ids = {r.id for r in user.roles}
+    missing_role_ids = set(role_ids) - existing_role_ids
+    if missing_role_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Roles with IDs {list(missing_role_ids)} not found",
+        )
+    user.roles = [r for r in user.roles if r.id not in role_ids]
+    db.add(user)
+    await db.commit()
     return UserResponse(
         id=cast(int, user.id),
         name=str(user.name),

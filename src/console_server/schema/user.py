@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import List
+from typing import List, Optional
 from .common import PaginatedResponse
 
 
@@ -44,3 +44,12 @@ class UserListResponse(PaginatedResponse[UserResponse]):
     """用户列表分页响应"""
 
     pass
+
+
+class UpdateUserRequest(BaseModel):
+    name: Optional[str]
+    description: Optional[str]
+
+
+class DisableUserRequest(BaseModel):
+    is_active: bool

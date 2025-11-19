@@ -16,3 +16,9 @@ class PaginatedResponse(BaseModel, Generic[T]):
     page: int
     page_size: int
     total_pages: int
+
+
+class SuccessResponse(BaseModel):
+    """通用成功响应模型"""
+
+    msg: str = "ok"
