@@ -51,12 +51,53 @@ bash ./dev.sh
 
 ## 权限管理
 
+### 默认用户
+
+| name  | email             | description | is_active | is_deletable | is_editable |
+| ----- | ----------------- | ----------- | --------- | ------------ | ----------- |
+| Admin | admin@example.com | -           | Ture      | False        | False       |
+| Danny | Danny@example.com | -           | Ture      | Ture         | Ture        |
+
+> **admin@example.com** 是管理员账户不可禁用、不可删除、不可编辑
+>
+> **Danny@example.com** 是测试账户可禁用、可删除、可编辑
+
+### 默认角色
+
+| name             | display_name | description | is_active | is_deletable | is_editable |
+| ---------------- | ------------ | ----------- | --------- | ------------ | ----------- |
+| admin            | 超级管理员   | -           | Ture      | False        | False       |
+| user             | 普通用户     | -           | Ture      | False        | False       |
+| user_admin       | 用户管理员   | -           | Ture      | False        | False       |
+| role_admin       | 角色管理员   | -           | Ture      | False        | False       |
+| permission_admin | 权限管理员   | -           | Ture      | False        | False       |
+
+> **admin** 是管理员角色不可禁用、不可删除、不可编辑
+>
+> **user** 管理员账户不可禁用、不可删除、不可编辑
+
+### 默认权限
+
+| name                | display_name                     | description | is_deletable | is_editable |
+| ------------------- | -------------------------------- | ----------- | ------------ | ----------- |
+| `api:*`             | 访问所有接口（admin）            | -           | False        | False       |
+| `api:user:*`        | 访问用户接口（user_admin）       | -           | False        | False       |
+| `api:role:*`        | 访问角色接口（role_admin）       | -           | False        | False       |
+| `api:persmission:*` | 访问权限接口（permission_admin） | -           | False        | False       |
+|                     |                                  |             |              |             |
+|                     |                                  |             |              |             |
+|                     |                                  |             |              |             |
+| `page:*`            | 预览所有页面（admin）            | -           | False        | False       |
+| `btn:*`             | 展示所有接口（admin）            | -           | False        | False       |
+
+
+
 ```bash
 # 后端接口权限
 # api:[path]:[method]
 api:*
 api:user:*
-api:user:POST
+api:user:POST,GET,PUT
 
 
 # 前端页面权限

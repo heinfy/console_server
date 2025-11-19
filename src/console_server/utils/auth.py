@@ -204,25 +204,35 @@ async def get_current_user(
     return user
 
 
-def require_permission(required_permissions: List[str]):
+ADMIN_API = "api:*"
+
+
+def require_permission(curr_api_path: str, required_permission: str):
     """权限验证装饰器"""
 
     async def permission_checker(
         current_user: User = Depends(get_current_user),
     ) -> User:
-        # 收集用户的所有权限
-        user_permissions = set()
+        # 如果用户是管理员，无需权限检查
+        if current_user.roles.include("admin"):
+            return current_user
+        # 遍历用户的角色，获取每个角色的权限
         for role in current_user.roles:
             for permission in role.permissions:
-                user_permissions.add(permission.name)
+                p_name = permission.name
+                # 如果当前用户拥有 ['api:*', 'api:PATH:*'] 通过校验
+                if p_name == ADMIN_API or p_name == f"api:{curr_api_path}:*":
+                    return current_user
+                # 如果当前用户拥有 ['api:PATH:get', 'api:PATH:get,POST,put', etc. ] 通过校验
+                elif p_name.startswith(f"api:{curr_api_path}:"):
+                    api_name = p_name.split(":")[2].lower()
+                    r_name = required_permission.split(":")[2]
+                    if r_name in api_name:
+                        return current_user
 
-        # 检查是否拥有必需的权限
-        if not any(perm in user_permissions for perm in required_permissions):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"权限不足，需要以下权限之一: {required_permissions}",
-            )
-
-        return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission {required_permission} required",
+        )
 
     return permission_checker

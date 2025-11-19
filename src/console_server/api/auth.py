@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from console_server.db import database
 from console_server.model.rbac import User, Role
+from console_server.schema.common import SuccessResponse
 from console_server.schema.user import UserResponse, UserCreate, Token, UserLogin
 from console_server.utils.auth import (
     get_current_user,
@@ -117,10 +118,7 @@ async def logout(
         # 将 token 添加到黑名单（如果已存在则不会重复添加）
         await add_token_to_blacklist(token, db)
 
-        return {
-            "message": "退出登录成功",
-            "detail": "Token 已被撤销，请客户端删除本地存储的 token",
-        }
+        return SuccessResponse()
     except HTTPException:
         # 如果 token 验证失败，get_current_user 会抛出异常
         # 这里不需要额外处理，异常会被自动传播
@@ -151,10 +149,8 @@ async def clean_up_expired_tokens(
     """
     try:
         deleted_count = await cleanup_expired_tokens(db)
-        return {
-            "message": "清理完成",
-            "deleted_count": deleted_count,
-        }
+        print(f"已清理 {deleted_count} 个过期 token")
+        return SuccessResponse()
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

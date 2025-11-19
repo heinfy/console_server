@@ -13,6 +13,9 @@ class CurrentUserResponse(BaseModel):
     id: int
     name: str
     email: str
+    is_active: bool
+    is_deletable: bool
+    is_editable: bool
     roles: List[str]
     permissions: List[str]
 

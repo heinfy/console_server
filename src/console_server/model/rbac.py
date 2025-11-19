@@ -1,5 +1,4 @@
-from datetime import datetime, timezone
-from sqlalchemy.orm import DeclarativeBase, relationship
+from sqlalchemy.orm import relationship
 from sqlalchemy import (
     Table,
     Column,
@@ -39,12 +38,11 @@ class User(Base):
     name = Column(String(100), nullable=False, index=True)  # 必填
     email = Column(String(100), unique=True, index=True, nullable=False)  # 必填
     password = Column(String(255), nullable=False)  # 通常密码也是必填的
-    description = Column(
-        String(128), nullable=True, index=True
-    )  # 不必填，明确设置为 nullable=True
-    is_active = Column(
-        Boolean, default=True, nullable=False, index=True
-    )  # 新增的激活状态字段
+    description = Column(String(128), nullable=True, index=True)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+
+    is_deletable = Column(Boolean, default=False, nullable=False)
+    is_editable = Column(Boolean, default=False, nullable=False)
 
     # 创建时间 - 只在创建时设置
     created_at = Column(
@@ -54,8 +52,8 @@ class User(Base):
     # 更新时间 - 每次更新时自动刷新
     updated_at = Column(
         DateTime(timezone=True),
-        default=func.now(),  # 默认值
-        onupdate=func.now(),  # 更新时自动设置当前时间
+        default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
 
@@ -85,6 +83,9 @@ class Role(Base):
     description = Column(Text, nullable=True)  # 描述，使用 Text 类型，不必填
     is_active = Column(Boolean, default=True, nullable=False, index=True)  # 是否启用
 
+    is_deletable = Column(Boolean, default=False, nullable=False)
+    is_editable = Column(Boolean, default=False, nullable=False)
+
     # 创建时间 - 只在创建时设置
     created_at = Column(
         DateTime(timezone=True),
@@ -95,8 +96,8 @@ class Role(Base):
     # 更新时间 - 每次更新时自动刷新
     updated_at = Column(
         DateTime(timezone=True),
-        server_default=func.now(),  # 默认值
-        onupdate=func.now(),  # 更新时自动设置当前时间
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False,
     )
 

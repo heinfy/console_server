@@ -106,6 +106,6 @@ async def assign_permissions_to_role(
     print(new_permissions)
     # 返回角色信息
     return {
-        "id": role.id,
+        "role_id": role.id,
         "permission_ids": [p.id for p in role.permissions],
     }
