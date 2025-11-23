@@ -231,6 +231,7 @@ def require_permission(curr_api_path: str, required_permission: str):
                     if r_name in api_name:
                         return current_user
 
+        print(f"Permission {required_permission} required =====================")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Permission {required_permission} required",

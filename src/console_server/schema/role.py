@@ -27,8 +27,8 @@ class RolePermissionResponse(BaseModel):
 
 
 class AssignRolesRequest(BaseModel):
-    role_ids: list[int]
+    role_names: list[str]
 
 
 class RemoveRolesRequest(BaseModel):
-    role_ids: list[int]
+    role_names: list[str]

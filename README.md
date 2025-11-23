@@ -78,18 +78,41 @@ bash ./dev.sh
 
 ### 默认权限
 
-| name                | display_name                     | description | is_deletable | is_editable |
-| ------------------- | -------------------------------- | ----------- | ------------ | ----------- |
-| `api:*`             | 访问所有接口（admin）            | -           | False        | False       |
-| `api:user:*`        | 访问用户接口（user_admin）       | -           | False        | False       |
-| `api:role:*`        | 访问角色接口（role_admin）       | -           | False        | False       |
-| `api:persmission:*` | 访问权限接口（permission_admin） | -           | False        | False       |
-|                     |                                  |             |              |             |
-|                     |                                  |             |              |             |
-|                     |                                  |             |              |             |
-| `page:*`            | 预览所有页面（admin）            | -           | False        | False       |
-| `btn:*`             | 展示所有接口（admin）            | -           | False        | False       |
+| name                    | display_name                        | description      | is_deletable | is_editable |
+| ----------------------- | ----------------------------------- | ---------------- | ------------ | ----------- |
+| `api:*`                 | 访问所有接口（admin）               | -                | False        | False       |
+| `api:user:*`            | 访问`/user`接口（user_admin）       | -                | False        | False       |
+| `api:user:get,post,PUT` | 访问`/user`路径下`get,post,put`接口 | 允许访问部分接口 | True         | True        |
+| `api:role:*`            | 访问角色接口（role_admin）          | -                | False        | False       |
+| `api:persmission:*`     | 访问权限接口（permission_admin）    | -                | False        | False       |
+|                         |                                     |                  |              |             |
+|                         |                                     |                  |              |             |
+| `page:*`                | 预览所有页面（admin）               | -                | False        | False       |
+| `btn:*`                 | 展示所有接口（admin）               | -                | False        | False       |
 
+### 举例
+
+```bash
+Users
+├── admin
+│   └── [admin] → api:*
+├── user_admin
+│   ├── [user] → api:self:*
+│   └── [user_admin] → api:user:*
+├── role_admin
+│   ├── [user] → api:self:*
+│   └── [role_admin] → api:role:*
+├── persmission_admin
+│   ├── [user] → api:self:*
+│   └── [persmission_admin] → api:persmission:*
+├── rbac_admin
+│   ├── [user] → api:self:*
+│   ├── [user_admin] → api:user:*
+│   ├── [role_admin] → api:role:*
+│   └── [persmission_admin] → api:persmission:*
+└── user
+    └── [user] → api:self:*
+```
 
 
 ```bash

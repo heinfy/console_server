@@ -12,6 +12,7 @@ from console_server.utils.auth import get_current_user
 router = APIRouter(prefix="/permission", tags=["permission"])
 
 
+# 创建权限
 @router.post(
     "/create",
     summary="创建权限",
@@ -42,3 +43,10 @@ async def create_permission(
     await db.commit()
     await db.refresh(new_permission)
     return new_permission
+
+
+# 更新权限
+
+# 移除权限
+
+# 获取权限列表

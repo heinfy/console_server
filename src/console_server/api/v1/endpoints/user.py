@@ -51,7 +51,7 @@ async def disable_user(
 )
 async def assign_role_to_user(
     user_id: int,
-    role_request: AssignRolesRequest = Body(default=AssignRolesRequest(role_ids=[])),
+    role_request: AssignRolesRequest = Body(default=AssignRolesRequest(role_names=[])),
     current_user: User = Depends(require_permission(API_PATH, USER_POST_API)),
     db: AsyncSession = Depends(database.get_db),
 ):
@@ -66,22 +66,22 @@ async def assign_role_to_user(
         )
 
     # 查询所有待分配的角色对象
-    stmt = select(Role).where(Role.id.in_(role_request.role_ids))
+    stmt = select(Role).where(Role.name.in_(role_request.role_names))
     result = await db.execute(stmt)
     roles_to_assign = result.scalars().all()
 
     # 如果部分角色不存在，则抛出错误提示具体缺失项
-    found_role_ids = {cast(int, r.id) for r in roles_to_assign}
-    missing_role_ids = set(role_request.role_ids) - found_role_ids
-    if missing_role_ids:
+    found_role_names = {cast(str, r.name) for r in roles_to_assign}
+    missing_role_names = set(role_request.role_names) - found_role_names
+    if missing_role_names:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Roles with IDs {list(missing_role_ids)} not found",
+            detail=f"Roles with IDs {list(missing_role_names)} not found",
         )
 
     # 过滤掉已存在的角色关系，防止重复添加
-    existing_role_ids = {r.id for r in user.roles}
-    new_roles = [r for r in roles_to_assign if r.id not in existing_role_ids]
+    existing_role_names = {r.id for r in user.roles}
+    new_roles = [r for r in roles_to_assign if r.id not in existing_role_names]
 
     # 添加新角色并提交事务
     user.roles.extend(new_roles)
@@ -128,15 +128,15 @@ async def get_user_roles(
 
 
 # 批量删除某个用户的角色
-@router.delete(
-    "/{user_id}/roles",
+@router.post(
+    "/{user_id}/remove-roles",
     summary="批量删除某个用户的角色",
     description="批量删除某个用户的角色（需要登录）",
     response_model=UserResponse,
 )
 async def delete_user_roles(
     user_id: int,
-    role_request: RemoveRolesRequest = Body(default=RemoveRolesRequest(role_ids=[])),
+    role_request: RemoveRolesRequest = Body(default=RemoveRolesRequest(role_names=[])),
     current_user: User = Depends(require_permission(API_PATH, USER_DELETE_API)),
     db: AsyncSession = Depends(database.get_db),
 ):
@@ -149,23 +149,31 @@ async def delete_user_roles(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="User not found"
         )
-    role_ids = role_request.role_ids
+    role_names = role_request.role_names
     # 获取所有待删除的角色对象
-    stmt = select(Role).where(Role.id.in_(role_ids))
+    stmt = select(Role).where(Role.name.in_(role_names))
     result = await db.execute(stmt)
     roles_to_delete = result.scalars().all()
     if not roles_to_delete:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Role not found"
         )
-    existing_role_ids = {r.id for r in user.roles}
-    missing_role_ids = set(role_ids) - existing_role_ids
-    if missing_role_ids:
+    # 验证待删除的角色是否属于该用户
+    existing_role_names = {r.name for r in user.roles}
+    missing_role_names = set(role_names) - existing_role_names
+    if missing_role_names:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Roles with IDs {list(missing_role_ids)} not found",
+            detail=f"User does not have roles: {list(missing_role_names)}",
         )
-    user.roles = [r for r in user.roles if r.id not in role_ids]
+    # 如果是 user 角色，则禁止删除
+    if "user" in role_names:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove 'user' role from user",
+        )
+    # 删除角色并提交事务
+    user.roles = [role for role in user.roles if role.name not in role_names]
     db.add(user)
     await db.commit()
     return UserResponse(

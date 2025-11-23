@@ -109,3 +109,45 @@ async def assign_permissions_to_role(
         "role_id": role.id,
         "permission_ids": [p.id for p in role.permissions],
     }
+
+
+# 获取角色列表
+@router.get(
+    "/list",
+    summary="获取角色列表",
+    description="获取所有角色的列表",
+    response_model=list[RoleResponse],
+)
+async def list_roles(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    result = await db.execute(select(Role))
+    roles = result.scalars().all()
+    return roles
+
+
+# 移除角色
+@router.delete(
+    "/{role_id}/remove",
+    summary="移除角色",
+    description="移除某个角色",
+    response_model=RoleResponse,
+)
+async def remove_role(
+    role_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(database.get_db),
+):
+    result = await db.execute(select(Role).where(Role.id == role_id))
+    role = result.scalar_one_or_none()
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Role not found"
+        )
+    await db.delete(role)
+    await db.commit()
+    return role
+
+
+# 更新角色
