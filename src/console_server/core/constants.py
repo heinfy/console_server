@@ -1,10 +1,45 @@
-DEFAULT_USER = {
-    "host": "localhost",
-    "port": 5432,
-    "username": "admin",
-    "password": "secret",
+# 权限类型
+PERM_TYPE = ("api", "page", "btn")
+
+PERM_TYPE_MAP = {
+    "api": "接口",
+    "page": "页面",
+    "btn": "按钮",
 }
 
-API_ENDPOINTS = {"users": "/api/v1/users", "posts": "/api/v1/posts"}
+# 请求方法
+API_METHODS = ("get", "post", "put", "delete")
 
-STATUS_CODES = {"SUCCESS": 200, "NOT_FOUND": 404, "SERVER_ERROR": 500}
+# 登录认证路径
+AUTH_PATH = "auth"
+
+# 公共路径：无需登录即可访问
+PUBLIC_PATH = "public"
+
+# 个人路径：只能访问自己的信息和基础数据
+SELF_PATH = "self"
+
+# 用户权限
+USER_PATH = "user"
+USER_ADMIN_API = f"{PERM_TYPE[0]}:${USER_PATH}:*"
+USER_GET_API = f"{PERM_TYPE[0]}:{USER_PATH}:{API_METHODS[0]}"
+USER_POST_API = f"{PERM_TYPE[0]}:{USER_PATH}:{API_METHODS[1]}"
+USER_PUT_API = f"{PERM_TYPE[0]}:{USER_PATH}:{API_METHODS[2]}"
+USER_DELETE_API = f"{PERM_TYPE[0]}:{USER_PATH}:{API_METHODS[3]}"
+
+# 角色路径
+ROLE_PATH = "role"
+ROLE_ADMIN_API = f"{PERM_TYPE[0]}:${ROLE_PATH}:*"
+ROLE_GET_API = f"{PERM_TYPE[0]}:{ROLE_PATH}:{API_METHODS[0]}"
+ROLE_POST_API = f"{PERM_TYPE[0]}:{ROLE_PATH}:{API_METHODS
+[1]}"
+ROLE_PUT_API = f"{PERM_TYPE[0]}:{ROLE_PATH}:{API_METHODS[2]}"
+ROLE_DELETE_API = f"{PERM_TYPE[0]}:{ROLE_PATH}:{API_METHODS[3]}"
+
+# 权限路径
+PERMISSION_PATH = "permission"
+PERMISSION_ADMIN_API = f"{PERM_TYPE[0]}:${PERMISSION_PATH}:*"
+PERMISSION_GET_API = f"{PERM_TYPE[0]}:{PERMISSION_PATH}:{API_METHODS[0]}"
+PERMISSION_POST_API = f"{PERM_TYPE[0]}:{PERMISSION_PATH}:{API_METHODS[1]}"
+PERMISSION_PUT_API = f"{PERM_TYPE[0]}:{PERMISSION_PATH}:{API_METHODS[2]}"
+PERMISSION_DELETE_API = f"{PERM_TYPE[0]}:{PERMISSION_PATH}:{API_METHODS[3]}"

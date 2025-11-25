@@ -5,11 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import APIRouter, Depends, Query, Body
 
+from console_server.core.constants import SELF_PATH
 from console_server.db import database
 from console_server.model.rbac import User
 from console_server.schema.common import SuccessResponse
+from console_server.schema.permission import UserPermissionResponse
+from console_server.schema.role import UserRoleResponse
 from console_server.schema.user import (
-    UserResponse,
+    UserInfoResponse,
     CurrentUserResponse,
     UserListResponse,
     UpdateUserRequest,
@@ -19,7 +22,7 @@ from console_server.utils.auth import get_current_user
 from console_server.core.config import settings
 
 
-router = APIRouter(prefix="/self", tags=["self"])
+router = APIRouter(prefix=f"/{SELF_PATH}", tags=[SELF_PATH])
 
 
 # 获取当前用户信息
@@ -34,11 +37,26 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
         id=cast(int, current_user.id),
         name=cast(str, current_user.name),
         email=cast(str, current_user.email),
+        description=cast(str, current_user.description),
         is_active=cast(bool, current_user.is_active),
         is_deletable=cast(bool, current_user.is_deletable),
         is_editable=cast(bool, current_user.is_editable),
-        roles=[cast(str, role.name) for role in current_user.roles],
-        permissions=[cast(str, perm.name) for perm in current_user.permissions],
+        roles=[
+            UserRoleResponse(
+                id=cast(int, role.id),
+                name=cast(str, role.name),
+                display_name=cast(str, role.display_name),
+            )
+            for role in current_user.roles
+        ],
+        permissions=[
+            UserPermissionResponse(
+                id=cast(int, perm.id),
+                name=cast(str, perm.name),
+                display_name=cast(str, perm.display_name),
+            )
+            for perm in current_user.permissions
+        ],
     )
 
 
@@ -56,7 +74,6 @@ async def update_current_user(
 ):
     name = user_request.name
     description = user_request.description
-    print(current_user)
     await db.execute(
         update(User)
         .where(User.id == cast(int, current_user.id))
@@ -113,11 +130,12 @@ async def read_users(
 
     # 将 User 模型转换为 UserResponse schema
     user_responses = [
-        UserResponse(
+        UserInfoResponse(
             id=cast(int, user.id),
             name=cast(str, user.name),
             email=cast(str, user.email),
-            roles=[cast(str, role.name) for role in user.roles],
+            description=cast(str, user.description),
+            is_active=cast(bool, user.is_active),
         )
         for user in users
     ]

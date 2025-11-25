@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 600
-    TOKEN_TYPE: str = "bearer"  # OAuth2 token type
+    TOKEN_TYPE: str = "Bearer"
 
     # 定时任务配置
     CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS: int = 24  # 清理过期 token 的间隔（小时）

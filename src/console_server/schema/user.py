@@ -1,5 +1,8 @@
 from pydantic import BaseModel, EmailStr
 from typing import List, Optional
+
+from .role import UserRoleResponse
+from .permission import UserPermissionResponse
 from .common import PaginatedResponse
 
 
@@ -13,11 +16,12 @@ class CurrentUserResponse(BaseModel):
     id: int
     name: str
     email: str
+    description: str
     is_active: bool
     is_deletable: bool
     is_editable: bool
-    roles: List[str]
-    permissions: List[str]
+    roles: List[UserRoleResponse]
+    permissions: List[UserPermissionResponse]
 
     class Config:
         from_attributes = True  # 兼容 SQLAlchemy 模型
@@ -43,7 +47,15 @@ class UserLogin(BaseModel):
     password: str
 
 
-class UserListResponse(PaginatedResponse[UserResponse]):
+class UserInfoResponse(BaseModel):
+    id: int
+    name: str
+    email: str
+    description: str
+    is_active: bool
+
+
+class UserListResponse(PaginatedResponse[UserInfoResponse]):
     """用户列表分页响应"""
 
     pass

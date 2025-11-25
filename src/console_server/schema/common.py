@@ -21,4 +21,4 @@ class PaginatedResponse(BaseModel, Generic[T]):
 class SuccessResponse(BaseModel):
     """通用成功响应模型"""
 
-    msg: str = "ok"
+    detail: str = "ok"

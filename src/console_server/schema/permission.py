@@ -12,6 +12,12 @@ class PermissionCreate(BaseModel):
     is_editable: bool = False
 
 
+class UserPermissionResponse(BaseModel):
+    id: int
+    name: str
+    display_name: str
+
+
 class PermissionResponse(BaseModel):
     name: str
     display_name: str

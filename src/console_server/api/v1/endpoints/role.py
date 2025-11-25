@@ -1,17 +1,31 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
 from sqlalchemy.orm import selectinload
 from typing import cast
 
+from console_server.core.constants import (
+    PERMISSION_PUT_API,
+    ROLE_DELETE_API,
+    ROLE_GET_API,
+    ROLE_PATH,
+    ROLE_POST_API,
+)
 from console_server.db import database
 from console_server.model.rbac import User, Role, Permission
-from console_server.schema.role import RoleCreate, RoleResponse, RolePermissionResponse
+from console_server.schema.role import (
+    RoleCreate,
+    RoleListResponse,
+    RoleResponse,
+    RolePermissionResponse,
+    RoleUpdateResponse,
+)
 from console_server.schema.permission import AssignPermissionsRequest
+from console_server.core.config import settings
 
 
-from console_server.utils.auth import get_current_user
+from console_server.utils.auth import require_permission
 
 
 router = APIRouter(prefix="/role", tags=["role"])
@@ -26,7 +40,7 @@ router = APIRouter(prefix="/role", tags=["role"])
 )
 async def create_role(
     role: RoleCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(ROLE_PATH, ROLE_POST_API)),
     db: AsyncSession = Depends(database.get_db),
 ):
     # 检查角色名称是否已存在
@@ -58,7 +72,7 @@ async def create_role(
 async def assign_permissions_to_role(
     role_id: int,
     permission_request: AssignPermissionsRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(ROLE_PATH, ROLE_POST_API)),
     db: AsyncSession = Depends(database.get_db),
 ):
     # 查询目标角色是否存在
@@ -111,20 +125,51 @@ async def assign_permissions_to_role(
     }
 
 
-# 获取角色列表
+# 获取角色列表，需要分页
 @router.get(
     "/list",
     summary="获取角色列表",
-    description="获取所有角色的列表",
-    response_model=list[RoleResponse],
+    description="获取所有角色的列表（需要登录，支持分页）",
+    response_model=RoleListResponse,
 )
 async def list_roles(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(ROLE_PATH, ROLE_GET_API)),
     db: AsyncSession = Depends(database.get_db),
+    page: int = Query(1, ge=1, description="页码，从1开始"),
+    page_size: int = Query(
+        settings.DEFAULT_PAGE_SIZE,
+        ge=1,
+        le=settings.MAX_PAGE_SIZE,
+        description="每页数量，最大100",
+    ),
 ):
-    result = await db.execute(select(Role))
+    offset = (page - 1) * page_size
+    # 获取所有角色
+    count_result = await db.execute(select(func.count()).select_from(Role))
+    total = count_result.scalar_one()
+    # 获取分页数据
+    result = await db.execute(select(Role).offset(offset).limit(page_size))
     roles = result.scalars().all()
-    return roles
+
+    # 计算总页数
+    total_pages = (total + page_size - 1) // page_size
+
+    return RoleListResponse(
+        items=[
+            RoleResponse(
+                id=cast(int, role.id),
+                name=cast(str, role.name),
+                display_name=cast(str, role.display_name),
+                description=cast(str, role.description),
+                is_active=cast(bool, role.is_active),
+            )
+            for role in roles
+        ],
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
 
 
 # 移除角色
@@ -136,7 +181,7 @@ async def list_roles(
 )
 async def remove_role(
     role_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_permission(ROLE_PATH, ROLE_DELETE_API)),
     db: AsyncSession = Depends(database.get_db),
 ):
     result = await db.execute(select(Role).where(Role.id == role_id))
@@ -151,3 +196,56 @@ async def remove_role(
 
 
 # 更新角色
+@router.put(
+    "/{role_id}/update",
+    summary="更新角色",
+    description="更新某个角色",
+    response_model=RoleResponse,
+)
+async def update_role(
+    role_id: int,
+    role_update: RoleUpdateResponse,
+    current_user: User = Depends(require_permission(ROLE_PATH, PERMISSION_PUT_API)),
+    db: AsyncSession = Depends(database.get_db),
+):
+    result = await db.execute(select(Role).where(Role.id == role_id))
+    role = result.scalar_one_or_none()
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Role not found"
+        )
+
+    role.display_name = role_update.display_name  # type: ignore
+    role.description = role_update.description  # type: ignore
+    role.is_active = role_update.is_active  # type: ignore
+
+    db.add(role)
+    await db.commit()
+    await db.refresh(role)
+    return role
+
+
+# 根据角色ID获取权限列表
+@router.get(
+    "/{role_id}/permissions",
+    summary="获取角色的权限列表",
+    description="根据角色ID获取该角色分配的权限列表",
+    response_model=RolePermissionResponse,
+)
+async def get_role_permissions(
+    role_id: int,
+    current_user: User = Depends(require_permission(ROLE_PATH, ROLE_GET_API)),
+    db: AsyncSession = Depends(database.get_db),
+):
+    result = await db.execute(
+        select(Role).where(Role.id == role_id).options(selectinload(Role.permissions))
+    )
+    role = result.scalar_one_or_none()
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Role not found"
+        )
+    return {
+        "role_id": role.id,
+        "permission_ids": [p.id for p in role.permissions],
+    }

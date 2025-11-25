@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
+from console_server.core.constants import AUTH_PATH, PUBLIC_PATH
 from console_server.db import database
 from console_server.model.rbac import User, Role
 from console_server.schema.common import SuccessResponse
@@ -20,7 +21,10 @@ from console_server.utils.auth import (
 from console_server.core.config import settings
 
 
-auth_router = APIRouter(prefix="/auth", tags=["auth"])
+auth_router = APIRouter(
+    prefix=f"/{AUTH_PATH}",
+    tags=[AUTH_PATH, PUBLIC_PATH],
+)
 
 
 # ✅ 路由
@@ -82,13 +86,17 @@ async def login(form_data: UserLogin, db: AsyncSession = Depends(database.get_db
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="邮箱或密码错误",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": settings.TOKEN_TYPE},
         )
 
     # 创建访问 token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={
+            "sub": user.email,
+            "is_active": user.is_active,
+        },
+        expires_delta=access_token_expires,
     )
 
     return {"access_token": access_token, "token_type": settings.TOKEN_TYPE}

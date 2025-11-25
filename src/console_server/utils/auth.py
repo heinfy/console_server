@@ -162,7 +162,7 @@ async def get_current_user(
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="无法验证凭证，请登录",
-        headers={"WWW-Authenticate": "Bearer"},
+        headers={"WWW-Authenticate": settings.TOKEN_TYPE},
     )
 
     # 检查 token 是否在黑名单中
@@ -170,7 +170,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 已被撤销，请重新登录",
-            headers={"WWW-Authenticate": "Bearer"},
+            headers={"WWW-Authenticate": settings.TOKEN_TYPE},
         )
 
     # 解码 JWT token，验证其有效性
@@ -224,7 +224,7 @@ def require_permission(curr_api_path: str, required_permission: str):
                 # 如果当前用户拥有 ['api:*', 'api:PATH:*'] 通过校验
                 if p_name == ADMIN_API or p_name == f"api:{curr_api_path}:*":
                     return current_user
-                # 如果当前用户拥有 ['api:PATH:get', 'api:PATH:get,POST,put', etc. ] 通过校验
+                # 如果当前用户拥有 ['api:PATH:get', 'api:PATH:get,POST,put', etc... ] 通过校验
                 elif p_name.startswith(f"api:{curr_api_path}:"):
                     api_name = p_name.split(":")[2].lower()
                     r_name = required_permission.split(":")[2]

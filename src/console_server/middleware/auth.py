@@ -5,8 +5,6 @@ from console_server.core.config import settings
 from jose import JWTError, jwt
 import re
 
-from console_server.utils.auth import get_current_user
-
 # 定义不需要认证的路径列表
 EXCLUDED_PATH_PATTERNS = [
     r"^/docs$",  # 精确匹配 /docs 路径
@@ -36,13 +34,26 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
         try:
             # 移除Bearer前缀（如果有）
-            if token.startswith("Bearer "):
+            if token.startswith(f"{settings.TOKEN_TYPE} "):
                 token = token[7:]
+            # 检查 token 格式是否正确（应该有3个部分）
+            if len(token.split(".")) != 3:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "Unauthorized: Invalid token format"},
+                )
 
+            # 解码和验证 JWT token
             payload = jwt.decode(
                 token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
             )
 
+            is_active = payload.get("is_active")
+            if is_active is False:
+                return JSONResponse(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    content={"detail": "Unauthorized: Inactive user"},
+                )
             # 将 payload 信息附加到请求状态中供后续使用
             request.state.user = payload
         except JWTError as e:
