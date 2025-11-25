@@ -14,6 +14,7 @@ from console_server.core.constants import (
 )
 from console_server.db import database
 from console_server.model.rbac import User, Role, Permission
+from console_server.schema.common import SuccessResponse
 from console_server.schema.role import (
     RoleCreate,
     RoleListResponse,
@@ -28,7 +29,7 @@ from console_server.core.config import settings
 from console_server.utils.auth import require_permission
 
 
-router = APIRouter(prefix="/role", tags=["role"])
+router = APIRouter(prefix=f"/{ROLE_PATH}", tags=[ROLE_PATH])
 
 
 # 创建角色
@@ -36,7 +37,7 @@ router = APIRouter(prefix="/role", tags=["role"])
     "/create",
     summary="创建角色",
     description="创建新角色",
-    response_model=RoleResponse,
+    response_model=SuccessResponse,
 )
 async def create_role(
     role: RoleCreate,
@@ -59,7 +60,7 @@ async def create_role(
     db.add(new_role)
     await db.commit()
     await db.refresh(new_role)
-    return new_role
+    return SuccessResponse()
 
 
 # 给角色分配权限
@@ -67,7 +68,7 @@ async def create_role(
     "/{role_id}/assign-permissions",
     summary="为角色分配多个权限（通过ID）",
     description="根据权限ID列表为特定角色分配权限。",
-    response_model=RolePermissionResponse,
+    response_model=SuccessResponse,
 )
 async def assign_permissions_to_role(
     role_id: int,
@@ -119,10 +120,7 @@ async def assign_permissions_to_role(
     print(role.id)
     print(new_permissions)
     # 返回角色信息
-    return {
-        "role_id": role.id,
-        "permission_ids": [p.id for p in role.permissions],
-    }
+    return SuccessResponse()
 
 
 # 获取角色列表，需要分页
@@ -177,7 +175,7 @@ async def list_roles(
     "/{role_id}/remove",
     summary="移除角色",
     description="移除某个角色",
-    response_model=RoleResponse,
+    response_model=SuccessResponse,
 )
 async def remove_role(
     role_id: int,
@@ -192,7 +190,7 @@ async def remove_role(
         )
     await db.delete(role)
     await db.commit()
-    return role
+    return SuccessResponse()
 
 
 # 更新角色
@@ -200,7 +198,7 @@ async def remove_role(
     "/{role_id}/update",
     summary="更新角色",
     description="更新某个角色",
-    response_model=RoleResponse,
+    response_model=SuccessResponse,
 )
 async def update_role(
     role_id: int,
@@ -222,7 +220,7 @@ async def update_role(
     db.add(role)
     await db.commit()
     await db.refresh(role)
-    return role
+    return SuccessResponse()
 
 
 # 根据角色ID获取权限列表

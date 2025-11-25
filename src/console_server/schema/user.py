@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import List, Optional
 
 from .role import UserRoleResponse
-from .permission import UserPermissionResponse
+from .permission import PermissionResponse
 from .common import PaginatedResponse
 
 
@@ -21,10 +21,10 @@ class CurrentUserResponse(BaseModel):
     is_deletable: bool
     is_editable: bool
     roles: List[UserRoleResponse]
-    permissions: List[UserPermissionResponse]
+    permissions: List[PermissionResponse]
 
     class Config:
-        from_attributes = True  # 兼容 SQLAlchemy 模型
+        from_attributes = True
 
 
 class UserResponse(BaseModel):
@@ -34,7 +34,7 @@ class UserResponse(BaseModel):
     roles: List[str]
 
     class Config:
-        from_attributes = True  # 兼容 SQLAlchemy 模型
+        from_attributes = True
 
 
 class Token(BaseModel):
