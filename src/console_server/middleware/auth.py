@@ -29,7 +29,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         if not token:
             return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": "Unauthorized: Missing or invalid token"},
             )
         try:
@@ -39,7 +39,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             # 检查 token 格式是否正确（应该有3个部分）
             if len(token.split(".")) != 3:
                 return JSONResponse(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     content={"detail": "Unauthorized: Invalid token format"},
                 )
 
@@ -51,7 +51,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             is_active = payload.get("is_active")
             if is_active is False:
                 return JSONResponse(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     content={"detail": "Unauthorized: Inactive user"},
                 )
             # 将 payload 信息附加到请求状态中供后续使用
@@ -59,13 +59,13 @@ class AuthMiddleware(BaseHTTPMiddleware):
         except JWTError as e:
             print(f"JWT decode error: {e}")
             return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": f"Unauthorized: Invalid token format - {str(e)}"},
             )
         except Exception as e:
             print(f"Unexpected error: {e}")
             return JSONResponse(
-                status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 content={"detail": "Unauthorized: Token validation failed"},
             )
 

@@ -84,7 +84,7 @@ async def login(form_data: UserLogin, db: AsyncSession = Depends(database.get_db
 
     if not user or not verify_password(form_data.password, str(user.password)):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail="邮箱或密码错误",
             headers={"WWW-Authenticate": settings.TOKEN_TYPE},
         )
