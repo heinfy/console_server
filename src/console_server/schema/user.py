@@ -16,7 +16,7 @@ class CurrentUserResponse(BaseModel):
     id: int
     name: str
     email: str
-    description: str
+    description: Optional[str] = None
     is_active: bool
     is_deletable: bool
     is_editable: bool
@@ -51,7 +51,7 @@ class UserInfoResponse(BaseModel):
     id: int
     name: str
     email: str
-    description: str
+    description: Optional[str] = None
     is_active: bool
 
 
@@ -63,7 +63,7 @@ class UserListResponse(PaginatedResponse[UserInfoResponse]):
 
 class UpdateUserRequest(BaseModel):
     name: Optional[str]
-    description: Optional[str]
+    description: Optional[str] = None
 
 
 class DisableUserRequest(BaseModel):

@@ -252,9 +252,7 @@ async def read_users(
             id=cast(int, user.id),
             name=cast(str, user.name),
             email=cast(str, user.email),
-            description=(
-                cast(str, user.description) if user.description is not None else ""
-            ),
+            description=cast(str, user.description),
             is_active=cast(bool, user.is_active),
         )
         for user in users
