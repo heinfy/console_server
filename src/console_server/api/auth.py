@@ -99,9 +99,22 @@ async def login(form_data: UserLogin, db: AsyncSession = Depends(database.get_db
         expires_delta=access_token_expires,
     )
 
-    return {"access_token": access_token, "token_type": settings.TOKEN_TYPE}
+    # 创建刷新 token
+    refresh_token = create_access_token(
+        data={
+            "sub": user.email,
+        },
+        expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAY),
+    )
+
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": settings.TOKEN_TYPE,
+    }
 
 
+# 登出
 @auth_router.post(
     "/logout",
     summary="退出登录",
@@ -139,9 +152,10 @@ async def logout(
         )
 
 
+# 清理过期 token
 @auth_router.post(
     "/cleanup-expired-tokens",
-    summary="清理过期 token（管理接口）",
+    summary="清理过期 token",
     description="清理黑名单中已过期的 token 记录，释放数据库空间",
     status_code=status.HTTP_200_OK,
 )
@@ -164,3 +178,6 @@ async def clean_up_expired_tokens(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"清理过期 token 时发生错误: {str(e)}",
         )
+
+
+# 根据 refresh_token 获取 access_token

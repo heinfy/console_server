@@ -56,12 +56,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 )
             # 将 payload 信息附加到请求状态中供后续使用
             request.state.user = payload
+        # 处理 JWT 解码错误
         except JWTError as e:
             print(f"JWT decode error: {e}")
             return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 content={"detail": f"Unauthorized: Invalid token format - {str(e)}"},
             )
+        # 处理其他异常
         except Exception as e:
             print(f"Unexpected error: {e}")
             return JSONResponse(

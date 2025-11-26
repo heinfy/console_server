@@ -22,6 +22,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # OAuth2 方案
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# OAuth2 刷新方案
+oauth2_refresh_scheme = OAuth2PasswordBearer(tokenUrl="refresh")
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """验证密码"""
