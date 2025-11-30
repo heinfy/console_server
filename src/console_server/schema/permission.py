@@ -16,7 +16,6 @@ class PermissionResponse(BaseModel):
     id: int
     name: str
     display_name: str
-    description: Optional[str] = None
 
     class Config:
         from_attributes = True
