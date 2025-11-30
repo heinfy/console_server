@@ -13,8 +13,6 @@ API_METHODS = ("get", "post", "put", "delete")
 # 登录认证路径
 AUTH_PATH = "auth"
 
-# 公共路径：无需登录即可访问
-PUBLIC_PATH = "public"
 
 # 个人路径：只能访问自己的信息和基础数据
 SELF_PATH = "self"

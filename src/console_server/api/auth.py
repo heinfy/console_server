@@ -2,9 +2,9 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
-from console_server.core.constants import AUTH_PATH, PUBLIC_PATH
+from console_server.core.constants import AUTH_PATH
 from console_server.db import database
 from console_server.model.rbac import User, Role
 from console_server.schema.common import SuccessResponse
@@ -13,17 +13,19 @@ from console_server.utils.auth import (
     get_current_user,
     get_password_hash,
     create_access_token,
+    is_token_blacklisted,
     verify_password,
     oauth2_scheme,
     cleanup_expired_tokens,
     add_token_to_blacklist,
 )
 from console_server.core.config import settings
+from console_server.utils.console import print_success
 
 
 auth_router = APIRouter(
     prefix=f"/{AUTH_PATH}",
-    tags=[AUTH_PATH, PUBLIC_PATH],
+    tags=[AUTH_PATH],
 )
 
 
@@ -52,7 +54,6 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(database.get_
     if not default_role:
         raise HTTPException(status_code=500, detail="Default 'user' role not found")
 
-    print("TTTTT:", default_role)
     new_user.roles.append(default_role)
 
     db.add(new_user)
@@ -71,13 +72,18 @@ async def create_user(user: UserCreate, db: AsyncSession = Depends(database.get_
     return user_data
 
 
+# 登录
 @auth_router.post(
     "/login",
     summary="登录获取 token",
     description="使用邮箱和密码登录，获取 JWT token",
     response_model=Token,
 )
-async def login(form_data: UserLogin, db: AsyncSession = Depends(database.get_db)):
+async def login(
+    form_data: UserLogin,
+    response: Response,
+    db: AsyncSession = Depends(database.get_db),
+):
     # 验证用户
     result = await db.execute(select(User).where(User.email == form_data.email))
     user = result.scalar_one_or_none()
@@ -106,10 +112,19 @@ async def login(form_data: UserLogin, db: AsyncSession = Depends(database.get_db
         },
         expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAY),
     )
+    # 设置 refresh_token 到 Cookie
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,  # 在生产环境中使用 HTTPS 时设为 True
+        samesite="lax",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAY * 24 * 60 * 60,  # 转换为秒
+        path="/",
+    )
 
     return {
         "access_token": access_token,
-        "refresh_token": refresh_token,
         "token_type": settings.TOKEN_TYPE,
     }
 
@@ -118,11 +133,13 @@ async def login(form_data: UserLogin, db: AsyncSession = Depends(database.get_db
 @auth_router.post(
     "/logout",
     summary="退出登录",
-    description="退出登录，将当前 JWT token 加入黑名单并撤销",
+    description="退出登录，将当前 JWT token 和 refresh token 加入黑名单并撤销",
     status_code=status.HTTP_200_OK,
 )
 async def logout(
-    token: str = Depends(oauth2_scheme),
+    request: Request,
+    response: Response,
+    access_token: str = Depends(oauth2_scheme),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(database.get_db),
 ):
@@ -130,14 +147,31 @@ async def logout(
     退出登录接口
 
     - 验证当前用户的 JWT token 有效性
-    - 将 token 添加到黑名单以撤销其有效性
-    - 客户端也应该删除本地存储的 token
+    - 将 access token 和 refresh token 添加到黑名单以撤销其有效性
+    - 清除客户端 Cookie 中的 refresh token
 
     注意：如果 token 已经在黑名单中，此接口会返回 401 错误
     """
     try:
-        # 将 token 添加到黑名单（如果已存在则不会重复添加）
-        await add_token_to_blacklist(token, db)
+        # 将 access token 添加到黑名单（如果已存在则不会重复添加）
+        await add_token_to_blacklist(access_token, db)
+
+        # 从 cookies 中获取 refresh token
+        refresh_token = request.cookies.get("refresh_token")
+        if refresh_token:
+            # 将 refresh token 添加到黑名单
+            await add_token_to_blacklist(refresh_token, db)
+
+        # 清除 Cookie 中的 refresh_token
+        response.delete_cookie(
+            key="refresh_token",
+            path="/",
+            secure=settings.COOKIE_SECURE,
+            httponly=True,
+            samesite="lax",
+        )
+
+        print_success(f"用户 {current_user.name} 退出登录")
 
         return SuccessResponse()
     except HTTPException:
@@ -180,4 +214,90 @@ async def clean_up_expired_tokens(
         )
 
 
-# 根据 refresh_token 获取 access_token
+# 如果 access_token 过期，根据 refresh_token 判断是否重新登录，还是刷新 access_token
+@auth_router.get(
+    "/refresh",
+    response_model=Token,
+    status_code=status.HTTP_200_OK,
+)
+async def refresh_token(
+    request: Request,
+    response: Response,
+    db: AsyncSession = Depends(database.get_db),
+) -> Token:
+    """
+    刷新访问令牌
+
+    当 access_token 过期时，使用存储在 cookies 中的 refresh_token 获取新的访问令牌。
+    如果 refresh_token 也过期或被撤销，则要求用户重新登录。
+    """
+    try:
+        # 从 cookies 中获取 refresh_token
+        refresh_token = request.cookies.get("refresh_token")
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="未找到有效的刷新令牌，请重新登录",
+                headers={"WWW-Authenticate": "Bearer", "Location": "/login"},
+            )
+        # 检查 refresh_token 是否在黑名单中
+        if await is_token_blacklisted(refresh_token, db):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="刷新令牌已被撤销，请重新登录",
+                headers={"WWW-Authenticate": "Bearer", "Location": "/login"},
+            )
+
+        # 验证并获取用户信息
+        user = await get_current_user(refresh_token, db)
+
+        # 创建新的访问令牌
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        new_access_token = create_access_token(
+            data={
+                "sub": user.email,
+                "is_active": user.is_active,
+            },
+            expires_delta=access_token_expires,
+        )
+
+        # 创建新的刷新令牌
+        new_refresh_token = create_access_token(
+            data={
+                "sub": user.email,
+            },
+            expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAY),
+        )
+
+        # 将新的 refresh_token 设置到 Cookie 中
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh_token,
+            httponly=True,
+            secure=settings.COOKIE_SECURE,
+            samesite="lax",
+            max_age=settings.REFRESH_TOKEN_EXPIRE_DAY * 24 * 60 * 60,  # 转换为秒
+            path="/",
+        )
+
+        # 将旧的 refresh_token 加入黑名单
+        await add_token_to_blacklist(refresh_token, db)
+
+        return Token(
+            access_token=new_access_token,
+            token_type=settings.TOKEN_TYPE,
+        )
+
+    except HTTPException as he:
+        # 如果是认证相关的异常，抛出给前端处理跳转
+        raise HTTPException(
+            status_code=420,
+            detail="认证已过期，请重新登录",
+            headers={"WWW-Authenticate": "Bearer", "Location": "/login"},
+        )
+    except Exception as e:
+        # 处理其他异常
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"刷新令牌时发生错误: {str(e)}",
+        )

@@ -56,8 +56,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 )
             # 将 payload 信息附加到请求状态中供后续使用
             request.state.user = payload
-        # 处理 JWT 解码错误
+        # jose库会自动检查exp声明并验证令牌是否过期
         except JWTError as e:
+            # 过期的令牌会在这里被捕获
             print(f"JWT decode error: {e}")
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -67,7 +68,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             print(f"Unexpected error: {e}")
             return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content={"detail": "Unauthorized: Token validation failed"},
             )
 
