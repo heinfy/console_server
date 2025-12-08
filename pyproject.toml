@@ -17,6 +17,8 @@ dependencies = [
     "colorama>=0.4.6",
     "pydantic-settings>=2.11.0",
     "apscheduler>=3.11.1",
+    "python-socketio>=5.15.0",
+    "redis>=7.1.0",
 ]
 
 [dependency-groups]

@@ -1,10 +1,11 @@
 # ✅ 先导入标准库和第三方库
 import os
+import sys
 from dotenv import load_dotenv
 from colorama import init
+from console_server.env import GLOBAL_LOG_LEVEL, SRC_LOG_LEVELS
 from console_server.middleware.auth import AuthMiddleware
 from console_server.utils.console import (
-    print_highlight,
     print_success,
     print_info,
     print_warn,
@@ -46,8 +47,10 @@ from .utils import auth
 from .core.config import settings
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logging.basicConfig(stream=sys.stdout, level=GLOBAL_LOG_LEVEL)
+log = logging.getLogger(__name__)
+log.setLevel(SRC_LOG_LEVELS["MAIN"])
+
 
 # 创建全局调度器
 scheduler = AsyncIOScheduler()
@@ -59,11 +62,11 @@ async def cleanup_expired_tokens_task():
         async with database.AsyncSessionLocal() as db:
             deleted_count = await auth.cleanup_expired_tokens(db)
             if deleted_count > 0:
-                logger.info(f"定时任务：清理了 {deleted_count} 个过期 token")
+                log.info(f"定时任务：清理了 {deleted_count} 个过期 token")
             else:
-                logger.debug("定时任务：没有需要清理的过期 token")
+                log.debug("定时任务：没有需要清理的过期 token")
     except Exception as e:
-        logger.error(f"定时任务执行失败：{str(e)}", exc_info=True)
+        log.error(f"定时任务执行失败：{str(e)}", exc_info=True)
 
 
 @asynccontextmanager
