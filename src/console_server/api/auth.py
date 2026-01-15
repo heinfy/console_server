@@ -130,7 +130,7 @@ async def login(
 
 
 # 登出
-@auth_router.post(
+@auth_router.get(
     "/logout",
     summary="退出登录",
     description="退出登录，将当前 JWT token 和 refresh token 加入黑名单并撤销",

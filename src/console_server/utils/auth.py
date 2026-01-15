@@ -163,7 +163,7 @@ async def get_current_user(
         User: 包含角色和权限信息的用户对象
     """
     credentials_exception = HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
+        status_code=status.HTTP_401_UNAUTHORIZED,
         detail="无法验证凭证，请登录",
         headers={"WWW-Authenticate": settings.TOKEN_TYPE},
     )
@@ -171,7 +171,7 @@ async def get_current_user(
     # 检查 token 是否在黑名单中
     if await is_token_blacklisted(token, db):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token 已被撤销，请重新登录",
             headers={"WWW-Authenticate": settings.TOKEN_TYPE},
         )
