@@ -10,6 +10,7 @@ build/
 
 # Virtual environments
 .env
+.env.*
 .venv
 env/
 venv/
@@ -23,6 +24,7 @@ venv/
 # Git
 .git/
 .gitignore
+.joycode/
 
 # OS
 .DS_Store
@@ -37,8 +39,9 @@ tests/
 *_test.py
 
 # Development files
-dev.sh
 docker-compose.yml
+docker-compose.yaml
+docker-compose.*.yaml
 api_test/
 
 # Database

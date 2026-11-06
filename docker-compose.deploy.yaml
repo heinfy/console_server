@@ -1,0 +1,63 @@
+# 通过 bash scripts/start.sh pre/prod --docker 启动，统一加载环境和端口。
+services:
+  backend:
+    image: ${CONSOLE_IMAGE:-console-server:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - path: ${CONSOLE_ENV_FILE:-.env.${ENV:?请通过 scripts/start.sh 环境 --docker 启动}}
+        required: false
+    environment:
+      - ENV
+      - HOST
+      - PORT
+      - DEBUG
+      - RELOAD
+      - WORKERS
+      - LOG_LEVEL
+      - FORWARDED_ALLOW_IPS
+      - DATABASE_URL
+      - SECRET_KEY
+      - DEEPSEEK_API_KEY
+      - DEEPSEEK_BASE_URL
+      - DEEPSEEK_MODEL
+      - DEEPSEEK_MAX_TOKENS
+      - DEEPSEEK_READ_TIMEOUT_SECONDS
+      - CHAT_STREAM_TIMEOUT_SECONDS
+      - COOKIE_SECURE
+      - AUTH_ALLOWED_ORIGINS
+      - APP_VERSION
+      - API_STR
+      - ALGORITHM
+      - ACCESS_TOKEN_EXPIRE_MINUTES
+      - REFRESH_TOKEN_EXPIRE_DAY
+      - TOKEN_TYPE
+      - CLEANUP_EXPIRED_TOKENS_INTERVAL_HOURS
+      - DEFAULT_PAGE_SIZE
+      - MAX_PAGE_SIZE
+      - CORS_ALLOW_ORIGIN
+      - GLOBAL_LOG_LEVEL
+      - CONFIG_LOG_LEVEL
+      - DB_LOG_LEVEL
+      - MAIN_LOG_LEVEL
+      - SOCKET_LOG_LEVEL
+      - OAUTH_LOG_LEVEL
+      - REDIS_URL
+      - REDIS_SENTINEL_HOSTS
+      - REDIS_SENTINEL_PORT
+      - ENABLE_WEBSOCKET_SUPPORT
+      - WEBSOCKET_MANAGER
+      - WEBSOCKET_REDIS_URL
+      - WEBSOCKET_REDIS_LOCK_TIMEOUT
+      - WEBSOCKET_SENTINEL_HOSTS
+      - WEBSOCKET_SENTINEL_PORT
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-${PORT:?PORT 未设置，请通过 scripts/start.sh 环境 --docker 启动}}:${PORT:?PORT 未设置}"
+    restart: unless-stopped
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

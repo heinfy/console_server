@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from sqlalchemy.orm import relationship
 from sqlalchemy import (
     Table,
@@ -8,26 +10,30 @@ from sqlalchemy import (
     Boolean,
     Text,
     ForeignKey,
+    JSON,
+    Uuid,
+    event,
 )
 from sqlalchemy.sql import func
 
 from .common import Base
+from .user_identity import install_user_uuid_guards, user_identities
 
 
 # 中间表（无主键类）
 user_roles = Table(
     "user_roles",
     Base.metadata,
-    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
-    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
+    Column("user_id", Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id", ondelete="RESTRICT"), primary_key=True, index=True),
 )
 
 # 角色-权限关联表（无主键类）
 role_permissions = Table(
     "role_permissions",
     Base.metadata,
-    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
-    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id", ondelete="CASCADE"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permissions.id", ondelete="RESTRICT"), primary_key=True, index=True),
 )
 
 
@@ -35,6 +41,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
+    uuid = Column(Uuid(as_uuid=True), default=uuid4, unique=True, index=True, nullable=False)
     name = Column(String(100), nullable=False, index=True)  # 必填
     email = Column(String(100), unique=True, index=True, nullable=False)  # 必填
     password = Column(String(255), nullable=False)  # 通常密码也是必填的
@@ -62,14 +69,22 @@ class User(Base):
 
     @property
     def permissions(self):
+        if not self.is_active:
+            return []
         perms = set()
         for role in self.roles:
+            if not role.is_active:
+                continue
             for permission in role.permissions:
                 perms.add(permission)
-        return list(perms)
+        return sorted(perms, key=lambda permission: permission.name)
 
     def __repr__(self):
         return f"<User(id={self.id}, name='{self.name}', email='{self.email}', is_active={self.is_active})>"
+
+
+User.__table__.add_is_dependent_on(user_identities)
+event.listen(User.__table__, "after_create", install_user_uuid_guards)
 
 
 class Role(Base):
@@ -138,3 +153,17 @@ class Permission(Base):
 
     def __repr__(self):
         return f"<Permission(id={self.id}, name='{self.name}', display_name='{self.display_name}')>"
+
+
+class AuthorizationAudit(Base):
+    """授权变更与关联变更同事务保存；历史记录不随账号删除。"""
+
+    __tablename__ = "authorization_audits"
+    id = Column(Integer, primary_key=True)
+    actor_id = Column(Integer, nullable=True, index=True)
+    target_type = Column(String(32), nullable=False)
+    target_id = Column(Integer, nullable=False, index=True)
+    action = Column(String(64), nullable=False)
+    before = Column(JSON, nullable=False)
+    after = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

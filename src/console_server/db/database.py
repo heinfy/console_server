@@ -8,10 +8,10 @@ import os
 # 支持环境变量配置，便于 Docker 部署
 DATABASE_URL = os.getenv("DATABASE_URL", settings.DATABASE_URL)
 
-print_info(f"数据库地址: {DATABASE_URL}")
+print_info("数据库连接配置已加载")
 
 # 创建异步引擎
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=False, hide_parameters=True)
 
 # 创建异步会话工厂
 AsyncSessionLocal = async_sessionmaker(

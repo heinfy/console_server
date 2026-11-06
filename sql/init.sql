@@ -113,7 +113,7 @@ BEGIN;
 INSERT INTO "public"."permissions" ("id", "name", "display_name", "description", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (2, 'api:user:*', '请求用户接口', '获取用户信息的权限', '2025-11-17 03:25:48.167232+00', '2025-11-19 07:06:37.576849+00', 'f', 'f');
 INSERT INTO "public"."permissions" ("id", "name", "display_name", "description", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (1, 'api:*', '请求所有接口', '允许用户请求所有接口', '2025-11-17 02:05:47.496069+00', '2025-11-19 07:06:48.082221+00', 'f', 'f');
 INSERT INTO "public"."permissions" ("id", "name", "display_name", "description", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (3, 'api:role:*', '访问角色接口', '允许访问所有角色接口', '2025-11-19 07:07:14.929565+00', '2025-11-19 07:07:14.929565+00', 'f', 'f');
-INSERT INTO "public"."permissions" ("id", "name", "display_name", "description", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (4, 'api:persmission:*', '访问权限接口', '允许访问所有权限接口', '2025-11-19 07:07:31.94566+00', '2025-11-19 07:07:31.94566+00', 'f', 'f');
+INSERT INTO "public"."permissions" ("id", "name", "display_name", "description", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (4, 'api:permission:*', '访问权限接口', '允许访问所有权限接口', '2025-11-19 07:07:31.94566+00', '2025-11-19 07:07:31.94566+00', 'f', 'f');
 COMMIT;
 
 -- ----------------------------
@@ -163,7 +163,7 @@ INSERT INTO "public"."roles" ("id", "name", "display_name", "description", "is_a
 INSERT INTO "public"."roles" ("id", "name", "display_name", "description", "is_active", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (12, 'user_admin', '用户管理员', '用户管理员', 't', '2025-11-19 07:03:14.294867+00', '2025-11-19 07:03:14.294867+00', 'f', 'f');
 INSERT INTO "public"."roles" ("id", "name", "display_name", "description", "is_active", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (13, 'role_admin', '角色管理员', '角色管理员', 't', '2025-11-19 07:03:29.203128+00', '2025-11-19 07:03:29.203128+00', 'f', 'f');
 INSERT INTO "public"."roles" ("id", "name", "display_name", "description", "is_active", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (14, 'permission_admin', '权限管理员', '权限管理员', 't', '2025-11-19 07:03:44.043309+00', '2025-11-19 07:03:44.043309+00', 'f', 'f');
-INSERT INTO "public"."roles" ("id", "name", "display_name", "description", "is_active", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (10, 'normal', '普通用户', '普通用户，只有基本的访问权限。', 't', '2025-11-14 06:43:13.51664+00', '2025-11-14 06:43:13.51664+00', 'f', 'f');
+INSERT INTO "public"."roles" ("id", "name", "display_name", "description", "is_active", "created_at", "updated_at", "is_deletable", "is_editable") VALUES (10, 'user', '普通用户', '普通用户，只有基本的访问权限。', 't', '2025-11-14 06:43:13.51664+00', '2025-11-14 06:43:13.51664+00', 'f', 'f');
 COMMIT;
 
 -- ----------------------------
@@ -215,6 +215,7 @@ COMMIT;
 -- ----------------------------
 DROP TABLE IF EXISTS "public"."users";
 CREATE TABLE "public"."users" (
+  "uuid" uuid NOT NULL DEFAULT gen_random_uuid(),
   "id" int4 NOT NULL DEFAULT nextval('users_id_seq'::regclass),
   "name" varchar(100) COLLATE "pg_catalog"."default" NOT NULL,
   "email" varchar(100) COLLATE "pg_catalog"."default" NOT NULL,
@@ -412,11 +413,186 @@ ALTER TABLE "public"."users" ADD CONSTRAINT "users_pkey" PRIMARY KEY ("id");
 -- ----------------------------
 -- Foreign Keys structure for table role_permissions
 -- ----------------------------
-ALTER TABLE "public"."role_permissions" ADD CONSTRAINT "role_permissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "public"."permissions" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."role_permissions" ADD CONSTRAINT "role_permissions_permission_id_fkey" FOREIGN KEY ("permission_id") REFERENCES "public"."permissions" ("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "public"."role_permissions" ADD CONSTRAINT "role_permissions_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "public"."roles" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
 
 -- ----------------------------
 -- Foreign Keys structure for table user_roles
 -- ----------------------------
-ALTER TABLE "public"."user_roles" ADD CONSTRAINT "user_roles_copy1_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "public"."roles" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+ALTER TABLE "public"."user_roles" ADD CONSTRAINT "user_roles_copy1_role_id_fkey" FOREIGN KEY ("role_id") REFERENCES "public"."roles" ("id") ON DELETE RESTRICT ON UPDATE NO ACTION;
 ALTER TABLE "public"."user_roles" ADD CONSTRAINT "user_roles_copy1_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users" ("id") ON DELETE CASCADE ON UPDATE NO ACTION;
+
+
+-- 初始化权限目录、授权操作及审计表。
+BEGIN;
+SELECT setval('public.permissions_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM public.permissions), 1));
+SELECT setval('public.roles_id_seq', GREATEST((SELECT COALESCE(MAX(id), 0) FROM public.roles), 1));
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:*', '全局管理（含授权）', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:permission:*', '权限：资料维护（不含授权）', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:permission:create', '权限：新增', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:permission:delete', '权限：删除', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:permission:read', '权限：查询', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:permission:update', '权限：编辑', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:role:*', '角色：资料维护（不含授权）', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:role:assign-permission', '角色：设置权限', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:role:create', '角色：新增', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:role:delete', '角色：删除', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:role:read', '角色：查询', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:role:update', '角色：编辑', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:user:*', '用户：资料维护（不含授权）', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:user:assign-role', '用户：分配角色', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:user:create', '用户：新增', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:user:delete', '用户：删除', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:user:read', '用户：查询', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('api:user:update', '用户：编辑', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('menu:*', '全部菜单', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('menu:chart', '图表菜单', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('menu:dashboard', '工作台菜单', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('menu:permission', '权限管理菜单', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('menu:role', '角色管理菜单', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('menu:setting', '设置菜单', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, is_editable, is_deletable) VALUES ('menu:user', '用户管理菜单', false, false) ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'admin' AND p.name = 'api:*' ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'admin' AND p.name = 'menu:*' ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'user' AND p.name = 'menu:dashboard' ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'user' AND p.name = 'menu:setting' ON CONFLICT DO NOTHING;
+-- 用户管理员显式关联全部用户接口权限及用户管理菜单。
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'user_admin' AND (p.name LIKE 'api:user:%' OR p.name = 'menu:user') ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'user_admin' AND p.name = 'menu:dashboard' ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'user_admin' AND p.name = 'menu:setting' ON CONFLICT DO NOTHING;
+-- 角色管理员显式关联全部角色接口权限、角色管理菜单及用户角色分配能力。
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p
+WHERE r.name = 'role_admin'
+  AND (p.name LIKE 'api:role:%' OR p.name IN ('menu:role', 'api:user:assign-role'))
+ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'role_admin' AND p.name = 'menu:dashboard' ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'role_admin' AND p.name = 'menu:setting' ON CONFLICT DO NOTHING;
+-- 权限管理员拥有完整的权限目录能力，并可查看引用角色及在自身范围内设置角色权限。
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p
+WHERE r.name = 'permission_admin' AND p.name IN (
+    'api:permission:*',
+    'api:permission:read', 'api:permission:create',
+    'api:permission:update', 'api:permission:delete',
+    'api:role:read', 'api:role:assign-permission',
+    'menu:permission'
+)
+ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'permission_admin' AND p.name = 'menu:dashboard' ON CONFLICT DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id) SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p WHERE r.name = 'permission_admin' AND p.name = 'menu:setting' ON CONFLICT DO NOTHING;
+CREATE TABLE IF NOT EXISTS public.authorization_audits (
+    id SERIAL PRIMARY KEY,
+    actor_id INTEGER,
+    target_type VARCHAR(32) NOT NULL,
+    target_id INTEGER NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    before JSON NOT NULL,
+    after JSON NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ix_authorization_audits_actor_id ON public.authorization_audits (actor_id);
+CREATE INDEX IF NOT EXISTS ix_authorization_audits_target_id ON public.authorization_audits (target_id);
+COMMIT;
+
+-- 用户鉴权 UUID 永久保留，不允许修改或复用。
+BEGIN;
+CREATE TABLE IF NOT EXISTS "public"."user_identities" (
+  "uuid" uuid PRIMARY KEY,
+  "created_at" timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO "public"."user_identities" (uuid)
+SELECT uuid FROM "public"."users" ON CONFLICT (uuid) DO NOTHING;
+CREATE UNIQUE INDEX IF NOT EXISTS "ix_users_uuid" ON "public"."users" (uuid);
+
+DO $guards$
+BEGIN
+    CREATE OR REPLACE FUNCTION public.guard_user_uuid()
+    RETURNS trigger LANGUAGE plpgsql AS $function$
+    BEGIN
+        IF TG_OP = 'INSERT' THEN
+            NEW.uuid := COALESCE(NEW.uuid, gen_random_uuid());
+            INSERT INTO public.user_identities (uuid) VALUES (NEW.uuid);
+        ELSIF NEW.uuid IS DISTINCT FROM OLD.uuid THEN
+            RAISE EXCEPTION 'User UUID is immutable' USING ERRCODE = '23514';
+        END IF;
+        RETURN NEW;
+    END;
+    $function$;
+
+    CREATE OR REPLACE FUNCTION public.guard_user_identity_history()
+    RETURNS trigger LANGUAGE plpgsql AS $function$
+    BEGIN
+        RAISE EXCEPTION 'User identity history is append-only' USING ERRCODE = '23514';
+    END;
+    $function$;
+
+    DROP TRIGGER IF EXISTS users_uuid_guard ON public.users;
+    CREATE TRIGGER users_uuid_guard
+        BEFORE INSERT OR UPDATE OF uuid ON public.users
+        FOR EACH ROW EXECUTE FUNCTION public.guard_user_uuid();
+
+    DROP TRIGGER IF EXISTS user_identities_history_guard ON public.user_identities;
+    CREATE TRIGGER user_identities_history_guard
+        BEFORE UPDATE OR DELETE ON public.user_identities
+        FOR EACH ROW EXECUTE FUNCTION public.guard_user_identity_history();
+
+    DROP TRIGGER IF EXISTS user_identities_truncate_guard ON public.user_identities;
+    CREATE TRIGGER user_identities_truncate_guard
+        BEFORE TRUNCATE ON public.user_identities
+        FOR EACH STATEMENT EXECUTE FUNCTION public.guard_user_identity_history();
+END;
+$guards$;
+COMMIT;
+
+-- 登录会话：初始化会话及密码变更、停用账号时的会话撤销约束。
+BEGIN;
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    id UUID PRIMARY KEY,
+    user_uuid UUID NOT NULL REFERENCES users(uuid) ON DELETE CASCADE,
+    refresh_jti UUID NOT NULL UNIQUE,
+    persistent BOOLEAN NOT NULL DEFAULT false,
+    expires_at TIMESTAMPTZ NOT NULL,
+    revoked_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS ix_auth_sessions_user_uuid ON auth_sessions(user_uuid);
+CREATE INDEX IF NOT EXISTS ix_auth_sessions_expires_at ON auth_sessions(expires_at);
+
+CREATE OR REPLACE FUNCTION "public".revoke_changed_user_sessions()
+RETURNS trigger LANGUAGE plpgsql AS $session_guard$
+BEGIN
+    IF NEW.password IS DISTINCT FROM OLD.password
+       OR (OLD.is_active AND NOT NEW.is_active) THEN
+        UPDATE "public".auth_sessions
+        SET revoked_at = CURRENT_TIMESTAMP
+        WHERE user_uuid = OLD.uuid AND revoked_at IS NULL;
+    END IF;
+    RETURN NEW;
+END;
+$session_guard$;
+DROP TRIGGER IF EXISTS users_revoke_sessions ON "public".users;
+CREATE TRIGGER users_revoke_sessions
+AFTER UPDATE OF password, is_active ON "public".users
+FOR EACH ROW EXECUTE FUNCTION "public".revoke_changed_user_sessions();
+
+COMMIT;
+
+
+-- AI 对话权限与独立角色。
+-- 随空库初始化创建，不自动给用户分配角色。
+BEGIN;
+INSERT INTO public.permissions (name, display_name, description, is_editable, is_deletable)
+VALUES ('api:chat:use', 'AI 对话：使用', '调用 DeepSeek 流式对话接口', false, false)
+ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.permissions (name, display_name, description, is_editable, is_deletable)
+VALUES ('menu:chat', 'AI 对话菜单', '菜单可见性由 api:chat:use 推导', false, false)
+ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.roles (name, display_name, description, is_active, is_editable, is_deletable)
+VALUES ('ai_user', 'AI 对话用户', '允许使用大模型流式对话', true, true, false)
+ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.role_permissions (role_id, permission_id)
+SELECT r.id, p.id FROM public.roles r CROSS JOIN public.permissions p
+WHERE r.name = 'ai_user' AND p.name IN ('api:chat:use', 'menu:chat')
+ON CONFLICT DO NOTHING;
+COMMIT;

@@ -16,6 +16,8 @@ from console_server.schema.user import (
 )
 
 from console_server.utils.auth import get_current_user
+from console_server.core.permissions import effective_capabilities
+from console_server.utils.auth import permission_names
 
 router = APIRouter(prefix=f"/{SELF_PATH}", tags=[SELF_PATH])
 
@@ -42,7 +44,7 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
                 name=cast(str, role.name),
                 display_name=cast(str, role.display_name),
             )
-            for role in current_user.roles
+            for role in current_user.roles if role.is_active
         ],
         permissions=[
             PermissionResponse(
@@ -52,6 +54,7 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
             )
             for perm in current_user.permissions
         ],
+        capabilities=effective_capabilities(permission_names(current_user)),
     )
 
 

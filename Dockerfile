@@ -1,31 +1,39 @@
-# 使用官方 Python 3.12 镜像作为基础镜像
-FROM python:3.12-slim
+ARG PYTHON_IMAGE=python:3.12.15-slim
 
-# 设置工作目录
+FROM ${PYTHON_IMAGE} AS builder
+ARG UV_VERSION=0.11.1
+ARG UV_INDEX_URL=https://mirrors.cloud.tencent.com/pypi/simple
 WORKDIR /app
+ENV UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0 \
+    UV_COMPILE_BYTECODE=1
 
-# 安装系统依赖
-RUN apt-get update && apt-get install -y \
-  curl \
-  gcc \
-  postgresql-client \
-  && rm -rf /var/lib/apt/lists/*
+RUN python -m pip install --no-cache-dir --index-url "${UV_INDEX_URL}" "uv==${UV_VERSION}"
 
-# 复制依赖文件
+# 构建时安装锁定的完整运行依赖，源码改动可复用这一层。
+COPY pyproject.toml uv.lock uv.toml ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+FROM ${PYTHON_IMAGE} AS runtime
+WORKDIR /app
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    RUNNING_IN_DOCKER=1
+
+RUN groupadd --gid 10001 console \
+    && useradd --uid 10001 --gid console --no-create-home --shell /usr/sbin/nologin console
+
+COPY --from=builder /app/.venv /app/.venv
 COPY pyproject.toml ./
-
-# 使用 pip 安装 Python 依赖
-RUN pip install --no-cache-dir fastapi uvicorn asyncpg sqlalchemy greenlet
-
-# 复制应用代码
 COPY src/ ./src/
+COPY scripts/ ./scripts/
+COPY sql/ ./sql/
+USER console
 
-# 暴露端口
 EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD ["python", "/app/scripts/healthcheck.py"]
 
-# 设置环境变量
-ENV PORT=8000
-ENV CORS_ALLOW_ORIGIN="*"
-
-# 启动命令
-CMD ["uvicorn", "src.console_server.main:app", "--port", "8000", "--forwarded-allow-ips", "*", "--host", "0.0.0.0"]
+CMD ["bash", "/app/scripts/start.sh"]

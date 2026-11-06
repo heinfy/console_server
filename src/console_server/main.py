@@ -1,8 +1,8 @@
 # ✅ 先导入标准库和第三方库
 import os
 import sys
-from dotenv import load_dotenv
 from colorama import init
+from console_server.core.config import settings
 from console_server.env import GLOBAL_LOG_LEVEL, SRC_LOG_LEVELS
 from console_server.middleware.auth import AuthMiddleware
 from console_server.utils.console import (
@@ -10,7 +10,6 @@ from console_server.utils.console import (
     print_info,
     print_warn,
 )
-from console_server.core.config import settings
 
 # 如果 RUNNING_IN_DOCKER 或 NO_COLOR 被设置，禁用颜色
 # docker run -e NO_COLOR=1 <IMAGE>
@@ -21,14 +20,8 @@ else:
     init(autoreset=True)
 
 
-env = os.getenv("ENV") or settings.ENV
-_debug: bool = False
-
-if env == settings.ENV:
-    _debug = settings.DEBUG
-else:
-    load_dotenv()
-    _debug = bool(os.getenv("DEBUG"))
+env = settings.ENV
+_debug = settings.DEBUG
 
 print_info(f"版本: {settings.APP_VERSION}")
 print_info(f"环境: {env}")
